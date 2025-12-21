@@ -1,0 +1,622 @@
+{% comment %}
+  Virtual Try-On Full Experience Block
+  Scorso-inspired full experience with promotional sections
+{% endcomment %}
+
+<!-- Load Styles -->
+{{ 'virtual-try-on-styles.css' | asset_url | stylesheet_tag }}
+
+<!-- Lottie Animation Library -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/bodymovin/5.12.2/lottie.min.js" integrity="sha512-jEnuDt6jfecCjthQAJ+ed0MTVA++5ZKmlUcmDGBv2vUI/REn6FuIdixLNnQT+vKusE2hhTk2is3cFvv5wA+Sgg==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+
+<div class="vto-container" style="background: linear-gradient(135deg, #f0fdf4 0%, #dcfce7 100%); min-height: 100vh; padding: 40px 0;">
+  
+  <!-- Share Your Look & Win Banner -->
+  {% if block.settings.show_promo_banner %}
+  <div class="vto-promo-banner" style="max-width: 1400px; margin: 0 auto 32px; margin-left: 24px; margin-right: 24px;">
+    <h2 class="vto-promo-title">{{ block.settings.promo_title | default: "Share Your Look & Win" }}</h2>
+    <p class="vto-promo-subtitle">{{ block.settings.promo_subtitle | default: "Get 100 Taka off your next purchase" }}</p>
+    
+    <div class="vto-promo-steps">
+      <div class="vto-promo-step">
+        <div class="vto-promo-step-number">1</div>
+        <p class="vto-promo-step-text">Download result</p>
+      </div>
+      <div class="vto-promo-step">
+        <div class="vto-promo-step-number">2</div>
+        <p class="vto-promo-step-text">Post & Tag us</p>
+      </div>
+      <div class="vto-promo-step">
+        <div class="vto-promo-step-number">3</div>
+        <p class="vto-promo-step-text">Receive code</p>
+      </div>
+    </div>
+  </div>
+  {% endif %}
+
+  <!-- Main Content: Two Panel Layout -->
+  <div class="vto-two-panel-layout">
+    
+    <!-- LEFT PANEL -->
+    <div class="vto-left-panel">
+      
+      <!-- Selected Item Card -->
+      <div class="vto-card" id="vto-full-selected-item-card">
+        <div class="vto-card-header">
+          <span class="vto-card-icon">📦</span>
+          Selected Item
+        </div>
+        <div class="vto-selected-item">
+          <img id="vto-full-product-thumbnail" src="{{ product.featured_image | img_url: 'medium' }}" alt="{{ product.title }}" class="vto-product-image">
+          <div class="vto-product-info">
+            <h3 class="vto-product-title" id="vto-full-product-name">{{ product.title }}</h3>
+            <p class="vto-product-subtitle">Ready to try on? Upload your photo below.</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- Your Photo Card -->
+      <div class="vto-card">
+        <div class="vto-card-header">
+          <span class="vto-card-icon">📸</span>
+          Your Photo
+        </div>
+        
+        <!-- Upload Area -->
+        <div id="vto-full-upload-area-container">
+          <div class="vto-upload-area" id="vto-full-drop-zone" onclick="document.getElementById('vto-full-file-input').click()">
+            <div class="vto-upload-icon">📸</div>
+            <p class="vto-upload-text">Take a clear photo of yourself in good lighting</p>
+            <p class="vto-upload-subtext">or <span class="vto-upload-link">click to select a file</span></p>
+            <input type="file" id="vto-full-file-input" accept="image/*" style="display: none;" onchange="handleFullFileSelect(event)">
+          </div>
+        </div>
+
+        <!-- Preview Area -->
+        <div id="vto-full-preview-area" class="vto-preview-container" style="display: none;">
+          <img id="vto-full-preview-image" src="" alt="Preview" class="vto-preview-image">
+          <div class="vto-status-badge">
+            <svg class="vto-status-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
+            </svg>
+            Ready
+          </div>
+          <button class="vto-button vto-button-secondary vto-button-full vto-mt-sm" onclick="resetFullUpload()">
+            Change Photo
+          </button>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- RIGHT PANEL -->
+    <div class="vto-right-panel">
+      
+      <!-- Result Panel -->
+      <div class="vto-result-panel">
+        <div class="vto-result-header">
+          <h3 class="vto-result-title">
+            <span class="vto-result-icon">✨</span>
+            {{ block.settings.result_title | default: "Virtual Mirror Result" }}
+          </h3>
+          <button id="vto-full-generate-look-button" class="vto-button vto-button-primary" onclick="startFullGeneration()" disabled>
+            <svg class="vto-button-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path>
+            </svg>
+            Generate Look
+          </button>
+        </div>
+
+        <div class="vto-result-content">
+          <!-- Loading State -->
+          <div id="vto-full-loading-state" style="display: none; width: 100%; text-align: center;">
+            <div id="vto-full-lottie-container" style="width: 300px; height: 300px; margin: 0 auto;"></div>
+            <div class="vto-loading-content">
+              <h3 class="vto-loading-title">
+                <span class="vto-full-loading-title-text">Creating Your Look</span>
+              </h3>
+              <p class="vto-full-loading-description">Our AI is carefully fitting the item to your photo.</p>
+              <p class="vto-full-loading-description" style="margin-top: 8px; font-size: 14px; color: #6b7280;">It usually takes around 30-40 seconds max.</p>
+              <div class="vto-progress-container">
+                <div class="vto-progress-bar">
+                  <div class="vto-full-progress-fill"></div>
+                </div>
+                <p class="vto-full-progress-text">Processing your image</p>
+              </div>
+            </div>
+          </div>
+
+          <!-- Result Image -->
+          <img id="vto-full-result-image" src="" alt="Try-on Result" class="vto-result-image" style="display: none;">
+
+          <!-- Placeholder State -->
+          <div id="vto-full-placeholder-state" style="text-align: center; padding: 60px 20px;">
+            <div style="font-size: 64px; margin-bottom: 16px;">✨</div>
+            <p style="color: var(--vto-text-secondary); font-size: 16px;">Upload your photo to see the magic happen</p>
+          </div>
+
+          <!-- Error State -->
+          <div id="vto-full-error-state" style="display: none; text-align: center; padding: 40px 20px;">
+            <div style="font-size: 64px; margin-bottom: 16px;">⚠️</div>
+            <p id="vto-full-error-message" style="color: #dc2626; font-size: 18px; font-weight: 600; margin-bottom: 16px;">Something went wrong</p>
+            <button class="vto-button vto-button-secondary" onclick="tryFullAgain()">Try Again</button>
+          </div>
+        </div>
+
+        <!-- Result Actions -->
+        <div class="vto-result-actions" id="vto-full-result-actions" style="display: none;">
+          <button class="vto-button vto-button-dark" onclick="downloadFullResult()" style="flex: 1;">
+            <svg class="vto-button-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path>
+            </svg>
+            Download
+          </button>
+          <button class="vto-button vto-button-secondary" onclick="tryFullAgain()" style="flex: 1;">
+            Try Again
+          </button>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+
+  <!-- How It Works Section - Always shown as guideline -->
+  <div class="vto-how-it-works" style="max-width: 1400px; margin: 48px auto 48px; margin-left: 24px; margin-right: 24px;">
+    <h2 class="vto-section-title">How It Works</h2>
+    
+    <div class="vto-steps-grid">
+      <div class="vto-step">
+        <div class="vto-step-icon" style="color: #10b981;">
+          <svg width="64" height="64" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z"></path>
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 13a3 3 0 11-6 0 3 3 0 016 0z"></path>
+          </svg>
+        </div>
+        <h3 class="vto-step-title">1. Upload Photo</h3>
+        <p class="vto-step-description">Take a clear photo of yourself in good lighting. Front-facing works best!</p>
+      </div>
+      
+      <div class="vto-step">
+        <div class="vto-step-icon" style="color: #10b981;">
+          <svg width="64" height="64" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path>
+          </svg>
+        </div>
+        <h3 class="vto-step-title">2. AI Magic</h3>
+        <p class="vto-step-description">Our advanced AI analyzes your pose and fits the clothing item perfectly.</p>
+      </div>
+      
+      <div class="vto-step">
+        <div class="vto-step-icon" style="color: #10b981;">
+          <svg width="64" height="64" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
+          </svg>
+        </div>
+        <h3 class="vto-step-title">3. Get Results</h3>
+        <p class="vto-step-description">Download your new look and share it with friends to win discounts!</p>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<style>
+  /* Loading animation styles */
+  .vto-loading-title {
+    font-size: 28px;
+    font-weight: 700;
+    margin: 0 0 12px 0;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 4px;
+  }
+
+  .vto-loading-dots {
+    display: inline-flex;
+    gap: 2px;
+  }
+
+  .vto-loading-dots .dot {
+    animation: dotBounce 1.4s ease-in-out infinite;
+  }
+
+  .vto-loading-dots .dot:nth-child(1) { animation-delay: 0s; }
+  .vto-loading-dots .dot:nth-child(2) { animation-delay: 0.2s; }
+  .vto-loading-dots .dot:nth-child(3) { animation-delay: 0.4s; }
+
+  @keyframes dotBounce {
+    0%, 80%, 100% {
+      transform: translateY(0);
+      opacity: 0.5;
+    }
+    40% {
+      transform: translateY(-10px);
+      opacity: 1;
+    }
+  }
+
+  .vto-full-loading-description {
+    font-size: 16px;
+    color: #6b7280;
+    margin: 0 0 32px 0;
+    line-height: 1.5;
+  }
+
+  .vto-progress-container {
+    width: 100%;
+    margin-top: 24px;
+  }
+
+  .vto-progress-bar {
+    width: 100%;
+    height: 6px;
+    background: #e5e7eb;
+    border-radius: 10px;
+    overflow: hidden;
+    margin-bottom: 12px;
+    position: relative;
+  }
+
+  .vto-full-progress-fill {
+    height: 100%;
+    background: linear-gradient(90deg, #667eea 0%, #764ba2 50%, #667eea 100%);
+    background-size: 200% 100%;
+    border-radius: 10px;
+    animation: progressFlow 2s ease-in-out infinite, progressGrow 30s linear forwards;
+    width: 0%;
+  }
+
+  @keyframes progressFlow {
+    0% { background-position: 0% 0%; }
+    100% { background-position: 200% 0%; }
+  }
+
+  @keyframes progressGrow {
+    0% { width: 0%; }
+    50% { width: 70%; }
+    90% { width: 95%; }
+    100% { width: 100%; }
+  }
+
+  .vto-full-progress-text {
+    font-size: 14px;
+    color: #9ca3af;
+    margin: 0;
+    font-weight: 500;
+    text-align: center;
+  }
+</style>
+
+<script>
+  // Full page experience - separate namespace to avoid conflicts with modal
+  let fullCurrentProduct = null;
+  let fullUploadedImageData = null;
+  let fullSessionId = null;
+  let fullLottieAnimation = null;
+
+  // Initialize on load
+  document.addEventListener('DOMContentLoaded', function() {
+    // Get product data
+    const productWrapper = document.querySelector('[data-product-id]');
+    const productJson = document.querySelector('script[type="application/json"][data-product-json]');
+    
+    let productData = null;
+    if (productJson) {
+      try {
+        productData = JSON.parse(productJson.textContent);
+      } catch (e) {
+        console.warn('Could not parse product JSON');
+      }
+    }
+    
+    const productId = productData?.id || productWrapper?.dataset?.productId || "{{ product.id }}";
+    const productTitle = productData?.title || document.querySelector('.product-title, h1, .product__title')?.textContent?.trim() || "{{ product.title | escape }}";
+    const productImage = productData?.featured_image || document.querySelector('.product-image img, .product__media img')?.src || "{{ product.featured_image | img_url: 'master' }}";
+
+    fullCurrentProduct = {
+      id: productId,
+      title: productTitle,
+      image: productImage
+    };
+
+    // Update UI
+    const thumbnail = document.getElementById('vto-full-product-thumbnail');
+    const name = document.getElementById('vto-full-product-name');
+    if (thumbnail && fullCurrentProduct.image) thumbnail.src = fullCurrentProduct.image;
+    if (name && fullCurrentProduct.title) name.textContent = fullCurrentProduct.title;
+  });
+
+  function resetFullUpload() {
+    fullUploadedImageData = null;
+    fullSessionId = null;
+    
+    document.getElementById('vto-full-upload-area-container').style.display = 'block';
+    document.getElementById('vto-full-preview-area').style.display = 'none';
+    document.getElementById('vto-full-file-input').value = '';
+    document.getElementById('vto-full-loading-state').style.display = 'none';
+    document.getElementById('vto-full-result-image').style.display = 'none';
+    document.getElementById('vto-full-placeholder-state').style.display = 'block';
+    document.getElementById('vto-full-error-state').style.display = 'none';
+    document.getElementById('vto-full-result-actions').style.display = 'none';
+    document.getElementById('vto-full-generate-look-button').disabled = true;
+    
+    destroyFullLottieAnimation();
+  }
+
+  function tryFullAgain() {
+    resetFullUpload();
+  }
+
+  // File upload handling
+  const fullDropZone = document.getElementById('vto-full-drop-zone');
+  if (fullDropZone) {
+    fullDropZone.addEventListener('dragover', (e) => {
+      e.preventDefault();
+      fullDropZone.classList.add('drag-over');
+    });
+
+    fullDropZone.addEventListener('dragleave', () => {
+      fullDropZone.classList.remove('drag-over');
+    });
+
+    fullDropZone.addEventListener('drop', (e) => {
+      e.preventDefault();
+      fullDropZone.classList.remove('drag-over');
+      const files = e.dataTransfer.files;
+      if (files.length > 0) {
+        handleFullFile(files[0]);
+      }
+    });
+  }
+
+  function handleFullFileSelect(event) {
+    const file = event.target.files[0];
+    if (file) {
+      handleFullFile(file);
+    }
+  }
+
+  function handleFullFile(file) {
+    if (!file.type.startsWith('image/')) {
+      alert('Please select an image file');
+      return;
+    }
+
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      fullUploadedImageData = e.target.result;
+      document.getElementById('vto-full-preview-image').src = fullUploadedImageData;
+      document.getElementById('vto-full-upload-area-container').style.display = 'none';
+      document.getElementById('vto-full-preview-area').style.display = 'block';
+      document.getElementById('vto-full-generate-look-button').disabled = false;
+    };
+    reader.readAsDataURL(file);
+  }
+
+  async function startFullGeneration() {
+    if (!fullUploadedImageData || !fullCurrentProduct) return;
+
+    // Hide all previous states
+    document.getElementById('vto-full-placeholder-state').style.display = 'none';
+    document.getElementById('vto-full-result-image').style.display = 'none';
+    document.getElementById('vto-full-error-state').style.display = 'none';
+    document.getElementById('vto-full-result-actions').style.display = 'none';
+    
+    // Show loading state
+    document.getElementById('vto-full-loading-state').style.display = 'block';
+    document.getElementById('vto-full-generate-look-button').disabled = true;
+    
+    // Clean up any previous Lottie animation
+    destroyFullLottieAnimation();
+
+    setTimeout(() => {
+      initFullLottieAnimation();
+    }, 100);
+
+    const progressFill = document.querySelector('.vto-full-progress-fill');
+    if (progressFill) {
+      progressFill.style.width = '0%';
+      progressFill.style.animation = 'none';
+      setTimeout(() => {
+        progressFill.style.animation = 'progressFlow 2s ease-in-out infinite, progressGrow 30s linear forwards';
+      }, 10);
+    }
+
+    updateFullLoadingMessage(0);
+
+    try {
+      const apiUrl = '/apps/proxy/api/storefront/try-on';
+      
+      const response = await fetch(apiUrl, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          shop: Shopify.shop,
+          productId: fullCurrentProduct.id,
+          productTitle: fullCurrentProduct.title,
+          productImage: fullCurrentProduct.image,
+          uploadedImage: fullUploadedImageData,
+          templateType: 'upper_body'
+        })
+      });
+
+      const data = await response.json();
+
+      if (data.success) {
+        fullSessionId = data.sessionId;
+        pollForFullResult();
+      } else {
+        showFullError(data.error || 'Failed to start generation');
+      }
+    } catch (error) {
+      console.error('Error:', error);
+      showFullError('Network error. Please try again.');
+    }
+  }
+
+  function updateFullLoadingMessage(progress) {
+    const titleText = document.querySelector('.vto-full-loading-title-text');
+    const description = document.querySelector('.vto-full-loading-description');
+    const progressText = document.querySelector('.vto-full-progress-text');
+    
+    if (!titleText || !description || !progressText) return;
+    
+    // Keep static message as per design
+    titleText.textContent = 'Creating Your Look';
+    description.textContent = 'Our AI is carefully fitting the item to your photo.';
+    progressText.textContent = 'Processing...';
+  }
+
+  async function pollForFullResult() {
+    let attempts = 0;
+    const maxAttempts = 60;
+
+    const interval = setInterval(async () => {
+      attempts++;
+
+      if (attempts > maxAttempts) {
+        clearInterval(interval);
+        showFullError('Generation timeout. Please try again.');
+        return;
+      }
+
+      const progress = Math.min((attempts / maxAttempts) * 100, 95);
+      updateFullLoadingMessage(progress);
+
+      try {
+        const apiUrl = `/apps/proxy/api/storefront/try-on?sessionId=${fullSessionId}`;
+        const response = await fetch(apiUrl);
+        const data = await response.json();
+
+        if (data.status === 'completed' && data.generatedImage) {
+          clearInterval(interval);
+          updateFullLoadingMessage(100);
+          setTimeout(() => {
+            showFullResult(data.generatedImage);
+          }, 500);
+        } else if (data.status === 'failed') {
+          clearInterval(interval);
+          showFullError('Generation failed. Please try again.');
+        }
+      } catch (error) {
+        console.error('Polling error:', error);
+      }
+    }, 2000);
+  }
+
+  function showFullResult(imageUrl) {
+    destroyFullLottieAnimation();
+    
+    document.getElementById('vto-full-loading-state').style.display = 'none';
+    document.getElementById('vto-full-result-image').src = imageUrl;
+    document.getElementById('vto-full-result-image').style.display = 'block';
+    document.getElementById('vto-full-result-actions').style.display = 'flex';
+    document.getElementById('vto-full-generate-look-button').disabled = false;
+  }
+
+  function showFullError(message) {
+    destroyFullLottieAnimation();
+    
+    document.getElementById('vto-full-loading-state').style.display = 'none';
+    document.getElementById('vto-full-placeholder-state').style.display = 'none';
+    document.getElementById('vto-full-error-state').style.display = 'block';
+    document.getElementById('vto-full-error-message').textContent = message;
+    document.getElementById('vto-full-generate-look-button').disabled = false;
+  }
+
+  function downloadFullResult() {
+    const resultImage = document.getElementById('vto-full-result-image');
+    if (!resultImage.src) return;
+
+    const link = document.createElement('a');
+    link.href = resultImage.src;
+    link.download = `virtual-tryon-${Date.now()}.jpg`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  }
+
+  function initFullLottieAnimation() {
+    const container = document.getElementById('vto-full-lottie-container');
+    if (!container) return;
+    
+    if (fullLottieAnimation) {
+      fullLottieAnimation.destroy();
+      fullLottieAnimation = null;
+    }
+
+    const shop = Shopify?.shop || window.Shopify?.shop || '';
+    const animationUrl = `/apps/proxy/api/lottie-animation?shop=${encodeURIComponent(shop)}`;
+    
+    if (typeof lottie !== 'undefined') {
+      try {
+        fullLottieAnimation = lottie.loadAnimation({
+          container: container,
+          renderer: 'svg',
+          loop: true,
+          autoplay: true,
+          path: animationUrl,
+          rendererSettings: {
+            preserveAspectRatio: 'xMidYMid meet',
+            clearCanvas: true,
+            progressiveLoad: true
+          }
+        });
+      } catch (error) {
+        console.warn('Error loading Lottie:', error);
+      }
+    }
+  }
+
+  function destroyFullLottieAnimation() {
+    if (fullLottieAnimation) {
+      fullLottieAnimation.destroy();
+      fullLottieAnimation = null;
+    }
+    const container = document.getElementById('vto-full-lottie-container');
+    if (container) {
+      container.innerHTML = '';
+    }
+  }
+</script>
+
+{% schema %}
+{
+  "name": "Virtual Try-On Full",
+  "target": "section",
+  "settings": [
+    {
+      "type": "text",
+      "id": "result_title",
+      "label": "Result Panel Title",
+      "default": "Virtual Mirror Result"
+    },
+    {
+      "type": "checkbox",
+      "id": "show_promo_banner",
+      "label": "Show Promotional Banner",
+      "default": true
+    },
+    {
+      "type": "text",
+      "id": "promo_title",
+      "label": "Promotional Banner Title",
+      "default": "Share Your Look & Win"
+    },
+    {
+      "type": "text",
+      "id": "promo_subtitle",
+      "label": "Promotional Banner Subtitle",
+      "default": "Get 100 Taka off your next purchase"
+    },
+  ]
+}
+{% endschema %}

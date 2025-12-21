@@ -1,0 +1,79 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+// Note that some adapters may set a maximum length for the String type by default, please ensure your strings are long
+// enough when changing adapters.
+// See https://www.prisma.io/docs/orm/reference/prisma-schema-reference#string for more information
+datasource db {
+  provider = "sqlite"
+  url      = "file:dev.sqlite"
+}
+
+model Session {
+  id            String    @id
+  shop          String
+  state         String
+  isOnline      Boolean   @default(false)
+  scope         String?
+  expires       DateTime?
+  accessToken   String
+  userId        BigInt?
+  firstName     String?
+  lastName      String?
+  email         String?
+  accountOwner  Boolean   @default(false)
+  locale        String?
+  collaborator  Boolean?  @default(false)
+  emailVerified Boolean?  @default(false)
+  refreshToken        String?
+  refreshTokenExpires DateTime?
+}
+
+model TryOnSession {
+  id              String   @id @default(uuid())
+  shop            String
+  productId       String
+  productTitle    String
+  productImage    String
+  customerEmail   String?
+  uploadedImage   String   // Customer's uploaded photo URL
+  generatedImage  String?  // AI-generated result URL
+  status          String   @default("pending") // pending, processing, completed, failed
+  templateType    String   // upper_body, full_body, bottom_body
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+}
+
+model TryOnTemplate {
+  id          String   @id @default(uuid())
+  shop        String
+  name        String
+  type        String   // upper_body, full_body, bottom_body
+  isActive    Boolean  @default(true)
+  productTags String?  // Comma-separated tags to auto-apply
+  createdAt   DateTime @default(now())
+}
+
+model ShopSettings {
+  id                  String  @id @default(uuid())
+  shop                String  @unique
+  buttonText          String  @default("Virtual Try-On")
+  buttonStyle         String  @default("primary")
+  buttonGradientStart String? // Gradient start color (e.g., #667eea)
+  buttonGradientEnd   String? // Gradient end color (e.g., #764ba2)
+  buttonRadius        String? // Border radius (e.g., 8px)
+  buttonBorderColor   String? // Border color (e.g., #d1d5db)
+  modalTitle          String  @default("Virtual Fitting Room")
+  enableLeadCapture   Boolean @default(false)
+  discountCode        String?
+  tryOnApiKey         String?
+  tryOnApiProvider    String  @default("replicate")
+  tryOnApiEndpoint    String?
+  monthlyCredits      Int     @default(20)
+  usedCredits         Int     @default(0)
+  resetDate           DateTime @default(now())
+}

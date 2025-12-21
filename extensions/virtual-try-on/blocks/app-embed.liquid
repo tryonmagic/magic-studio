@@ -1,0 +1,609 @@
+{% comment %}
+  Virtual Try-On App Embed - Modern Scorso-inspired UI
+  Two-panel layout with polished design
+{% endcomment %}
+
+<!-- Load Styles -->
+<link rel="stylesheet" href="{{ 'virtual-try-on-styles.css' | asset_url }}">
+
+<!-- Lottie Animation Library -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/bodymovin/5.12.2/lottie.min.js" integrity="sha512-jEnuDt6jfecCjthQAJ+ed0MTVA++5ZKmlUcmDGBv2vUI/REn6FuIdixLNnQT+vKusE2hhTk2is3cFvv5wA+Sgg==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+
+<!-- Virtual Try-On Modal -->
+<div id="virtual-tryon-modal" class="vto-modal vto-container" style="display: none;">
+  <div class="vto-modal-overlay" onclick="closeVirtualTryOn()"></div>
+  <div class="vto-modal-content">
+    <div class="vto-modal-header">
+      <h2 class="vto-modal-title">Virtual Fitting Room</h2>
+      <button class="vto-close-button" onclick="closeVirtualTryOn()" aria-label="Close">×</button>
+    </div>
+
+    <div class="vto-modal-body">
+      <!-- Two Panel Layout -->
+      <div class="vto-two-panel-layout">
+        
+        <!-- LEFT PANEL -->
+        <div class="vto-left-panel">
+          
+          <!-- Selected Item Card -->
+          <div class="vto-card" id="vto-selected-item-card">
+            <div class="vto-card-header">
+              <span class="vto-card-icon">📦</span>
+              Selected Item
+            </div>
+            <div class="vto-selected-item">
+              <img id="vto-product-thumbnail" src="" alt="Product" class="vto-product-image">
+              <div class="vto-product-info">
+                <h3 class="vto-product-title" id="vto-product-name">Product Name</h3>
+                <p class="vto-product-subtitle">Ready to try on? Upload your photo below.</p>
+              </div>
+            </div>
+          </div>
+
+          <!-- Your Photo Card -->
+          <div class="vto-card" id="vto-photo-card">
+            <div class="vto-card-header">
+              <span class="vto-card-icon">📸</span>
+              Your Photo
+            </div>
+            
+            <!-- Upload Area -->
+            <div id="vto-upload-area-container">
+              <div class="vto-upload-area" id="vto-drop-zone" onclick="document.getElementById('vto-file-input').click()">
+                <div class="vto-upload-icon">📸</div>
+                <p class="vto-upload-text">Drag and drop your photo</p>
+                <p class="vto-upload-subtext">or <span class="vto-upload-link">click to select a file</span></p>
+                <input type="file" id="vto-file-input" accept="image/*" style="display: none;" onchange="handleFileSelect(event)">
+              </div>
+            </div>
+
+            <!-- Preview Area -->
+            <div id="vto-preview-area" class="vto-preview-container" style="display: none;">
+              <img id="vto-preview-image" src="" alt="Preview" class="vto-preview-image">
+              <div class="vto-status-badge">
+                <svg class="vto-status-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
+                </svg>
+                Ready
+              </div>
+              <button class="vto-button vto-button-secondary vto-button-full vto-mt-sm" onclick="resetUpload()">
+                Change Photo
+              </button>
+            </div>
+          </div>
+
+        </div>
+
+        <!-- RIGHT PANEL -->
+        <div class="vto-right-panel">
+          
+          <!-- Result Panel -->
+          <div class="vto-result-panel">
+            <div class="vto-result-header">
+              <h3 class="vto-result-title">
+                <span class="vto-result-icon">✨</span>
+                Virtual Mirror Result
+              </h3>
+              <button id="vto-generate-look-button" class="vto-button vto-button-primary" onclick="startGeneration()" disabled>
+                <svg class="vto-button-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path>
+                </svg>
+                Generate Look
+              </button>
+            </div>
+
+            <div class="vto-result-content" id="vto-result-display">
+              <!-- Loading State -->
+              <div id="vto-loading-state" style="display: none; width: 100%; text-align: center;">
+                <div id="vto-lottie-container" style="width: 300px; height: 300px; margin: 0 auto;"></div>
+                <div class="vto-loading-content">
+              <h3 class="vto-loading-title">
+                <span class="vto-loading-title-text">Creating Your Look</span>
+              </h3>
+              <p class="vto-loading-description">Our AI is carefully fitting the item to your photo.</p>
+              <p class="vto-loading-description" style="margin-top: 8px; font-size: 14px; color: #6b7280;">It usually takes around 30-40 seconds max.</p>
+                  <div class="vto-progress-container">
+                    <div class="vto-progress-bar">
+                      <div class="vto-progress-fill"></div>
+                    </div>
+                    <p class="vto-progress-text">Processing your image</p>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Result Image -->
+              <img id="vto-result-image" src="" alt="Try-on Result" class="vto-result-image" style="display: none;">
+
+              <!-- Placeholder State -->
+              <div id="vto-placeholder-state" style="text-align: center; padding: 60px 20px;">
+                <div style="font-size: 64px; margin-bottom: 16px;">✨</div>
+                <p style="color: var(--vto-text-secondary); font-size: 16px;">Upload your photo to see the magic happen</p>
+              </div>
+
+              <!-- Error State -->
+              <div id="vto-error-state" style="display: none; text-align: center; padding: 40px 20px;">
+                <div style="font-size: 64px; margin-bottom: 16px;">⚠️</div>
+                <p id="vto-error-message" style="color: #dc2626; font-size: 18px; font-weight: 600; margin-bottom: 16px;">Something went wrong</p>
+                <button class="vto-button vto-button-secondary" onclick="tryAgain()">Try Again</button>
+              </div>
+            </div>
+
+            <!-- Result Actions -->
+            <div class="vto-result-actions" id="vto-result-actions" style="display: none;">
+              <button class="vto-button vto-button-dark" onclick="downloadResult()" style="flex: 1;">
+                <svg class="vto-button-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path>
+                </svg>
+                Download
+              </button>
+              <button class="vto-button vto-button-secondary" onclick="tryAgain()" style="flex: 1;">
+                Try Again
+              </button>
+            </div>
+          </div>
+
+        </div>
+      </div>
+
+      <!-- How It Works Section - Guideline -->
+      <div class="vto-how-it-works" style="max-width: 100%; margin: 32px 0;">
+        <h2 class="vto-section-title">How It Works</h2>
+        
+        <div class="vto-steps-grid">
+          <div class="vto-step">
+            <div class="vto-step-icon" style="color: #10b981;">
+              <svg width="64" height="64" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z"></path>
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 13a3 3 0 11-6 0 3 3 0 016 0z"></path>
+              </svg>
+            </div>
+            <h3 class="vto-step-title">1. Upload Photo</h3>
+            <p class="vto-step-description">Take a clear photo of yourself in good lighting. Front-facing works best!</p>
+          </div>
+          
+          <div class="vto-step">
+            <div class="vto-step-icon" style="color: #10b981;">
+              <svg width="64" height="64" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path>
+              </svg>
+            </div>
+            <h3 class="vto-step-title">2. AI Magic</h3>
+            <p class="vto-step-description">Our advanced AI analyzes your pose and fits the clothing item perfectly.</p>
+          </div>
+          
+          <div class="vto-step">
+            <div class="vto-step-icon" style="color: #10b981;">
+              <svg width="64" height="64" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
+              </svg>
+            </div>
+            <h3 class="vto-step-title">3. Get Results</h3>
+            <p class="vto-step-description">Download your new look and share it with friends to win discounts!</p>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<style>
+  /* Loading animation styles */
+  .vto-loading-title {
+    font-size: 28px;
+    font-weight: 700;
+    margin: 0 0 12px 0;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 4px;
+  }
+
+  .vto-loading-dots {
+    display: inline-flex;
+    gap: 2px;
+  }
+
+  .vto-loading-dots .dot {
+    animation: dotBounce 1.4s ease-in-out infinite;
+  }
+
+  .vto-loading-dots .dot:nth-child(1) { animation-delay: 0s; }
+  .vto-loading-dots .dot:nth-child(2) { animation-delay: 0.2s; }
+  .vto-loading-dots .dot:nth-child(3) { animation-delay: 0.4s; }
+
+  @keyframes dotBounce {
+    0%, 80%, 100% {
+      transform: translateY(0);
+      opacity: 0.5;
+    }
+    40% {
+      transform: translateY(-10px);
+      opacity: 1;
+    }
+  }
+
+  .vto-loading-description {
+    font-size: 16px;
+    color: #6b7280;
+    margin: 0 0 32px 0;
+    line-height: 1.5;
+  }
+
+  .vto-progress-container {
+    width: 100%;
+    margin-top: 24px;
+  }
+
+  .vto-progress-bar {
+    width: 100%;
+    height: 6px;
+    background: #e5e7eb;
+    border-radius: 10px;
+    overflow: hidden;
+    margin-bottom: 12px;
+    position: relative;
+  }
+
+  .vto-progress-fill {
+    height: 100%;
+    background: linear-gradient(90deg, #667eea 0%, #764ba2 50%, #667eea 100%);
+    background-size: 200% 100%;
+    border-radius: 10px;
+    animation: progressFlow 2s ease-in-out infinite, progressGrow 30s linear forwards;
+    width: 0%;
+  }
+
+  @keyframes progressFlow {
+    0% { background-position: 0% 0%; }
+    100% { background-position: 200% 0%; }
+  }
+
+  @keyframes progressGrow {
+    0% { width: 0%; }
+    50% { width: 70%; }
+    90% { width: 95%; }
+    100% { width: 100%; }
+  }
+
+  .vto-progress-text {
+    font-size: 14px;
+    color: #9ca3af;
+    margin: 0;
+    font-weight: 500;
+    text-align: center;
+  }
+</style>
+
+<script>
+  let currentProduct = null;
+  let uploadedImageData = null;
+  let sessionId = null;
+  let lottieAnimation = null;
+
+  function openVirtualTryOn() {
+    // Get product data
+    const productWrapper = document.querySelector('[data-product-id]');
+    const productJson = document.querySelector('script[type="application/json"][data-product-json]');
+    
+    let productData = null;
+    if (productJson) {
+      try {
+        productData = JSON.parse(productJson.textContent);
+      } catch (e) {
+        console.warn('Could not parse product JSON');
+      }
+    }
+    
+    const productId = productData?.id || productWrapper?.dataset?.productId;
+    const productTitle = productData?.title || document.querySelector('.product-title, h1, .product__title')?.textContent?.trim() || 'Product';
+    const productImage = productData?.featured_image || document.querySelector('.product-image img, .product__media img')?.src || '';
+    const priceElement = document.querySelector('.product-price, .price, [data-product-price]');
+    const priceText = priceElement?.textContent?.replace(/[^0-9.]/g, '') || '0';
+    const price = parseFloat(priceText);
+    const variantSelect = document.querySelector('select[name="id"], input[name="id"]:checked');
+    const variantId = productData?.variants?.[0]?.id || variantSelect?.value || productId;
+
+    currentProduct = {
+      id: productId,
+      title: productTitle,
+      image: productImage,
+      price: price,
+      variantId: variantId
+    };
+
+    // Update UI with product info
+    document.getElementById('vto-product-thumbnail').src = productImage;
+    document.getElementById('vto-product-name').textContent = productTitle;
+
+    document.getElementById('virtual-tryon-modal').style.display = 'flex';
+    document.body.style.overflow = 'hidden';
+  }
+
+  function closeVirtualTryOn() {
+    document.getElementById('virtual-tryon-modal').style.display = 'none';
+    document.body.style.overflow = '';
+    resetUpload();
+  }
+
+  function resetUpload() {
+    uploadedImageData = null;
+    sessionId = null;
+    
+    // Reset upload area
+    document.getElementById('vto-upload-area-container').style.display = 'block';
+    document.getElementById('vto-preview-area').style.display = 'none';
+    document.getElementById('vto-file-input').value = '';
+    
+    // Reset result area
+    document.getElementById('vto-loading-state').style.display = 'none';
+    document.getElementById('vto-result-image').style.display = 'none';
+    document.getElementById('vto-placeholder-state').style.display = 'block';
+    document.getElementById('vto-error-state').style.display = 'none';
+    document.getElementById('vto-result-actions').style.display = 'none';
+    
+    // Disable generate button
+    document.getElementById('vto-generate-look-button').disabled = true;
+    
+    // Clean up Lottie
+    destroyLottieAnimation();
+  }
+
+  function tryAgain() {
+    resetUpload();
+  }
+
+  // File upload handling
+  const dropZone = document.getElementById('vto-drop-zone');
+
+  if (dropZone) {
+    dropZone.addEventListener('dragover', (e) => {
+      e.preventDefault();
+      dropZone.classList.add('drag-over');
+    });
+
+    dropZone.addEventListener('dragleave', () => {
+      dropZone.classList.remove('drag-over');
+    });
+
+    dropZone.addEventListener('drop', (e) => {
+      e.preventDefault();
+      dropZone.classList.remove('drag-over');
+      const files = e.dataTransfer.files;
+      if (files.length > 0) {
+        handleFile(files[0]);
+      }
+    });
+  }
+
+  function handleFileSelect(event) {
+    const file = event.target.files[0];
+    if (file) {
+      handleFile(file);
+    }
+  }
+
+  function handleFile(file) {
+    if (!file.type.startsWith('image/')) {
+      alert('Please select an image file');
+      return;
+    }
+
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      uploadedImageData = e.target.result;
+      document.getElementById('vto-preview-image').src = uploadedImageData;
+      document.getElementById('vto-upload-area-container').style.display = 'none';
+      document.getElementById('vto-preview-area').style.display = 'block';
+      document.getElementById('vto-generate-look-button').disabled = false;
+    };
+    reader.readAsDataURL(file);
+  }
+
+  async function startGeneration() {
+    if (!uploadedImageData || !currentProduct) return;
+
+    // Hide all previous states
+    document.getElementById('vto-placeholder-state').style.display = 'none';
+    document.getElementById('vto-result-image').style.display = 'none';
+    document.getElementById('vto-error-state').style.display = 'none';
+    document.getElementById('vto-result-actions').style.display = 'none';
+    
+    // Show loading state
+    document.getElementById('vto-loading-state').style.display = 'block';
+    document.getElementById('vto-generate-look-button').disabled = true;
+    
+    // Clean up any previous Lottie animation
+    destroyLottieAnimation();
+
+    // Initialize Lottie
+    setTimeout(() => {
+      initLottieAnimation();
+    }, 100);
+
+    // Reset progress bar
+    const progressFill = document.querySelector('.vto-progress-fill');
+    if (progressFill) {
+      progressFill.style.width = '0%';
+      progressFill.style.animation = 'none';
+      setTimeout(() => {
+        progressFill.style.animation = 'progressFlow 2s ease-in-out infinite, progressGrow 30s linear forwards';
+      }, 10);
+    }
+
+    updateLoadingMessage(0);
+
+    try {
+      const apiUrl = '/apps/proxy/api/storefront/try-on';
+      
+      const response = await fetch(apiUrl, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          shop: Shopify.shop,
+          productId: currentProduct.id,
+          productTitle: currentProduct.title,
+          productImage: currentProduct.image,
+          uploadedImage: uploadedImageData,
+          templateType: 'upper_body'
+        })
+      });
+
+      const data = await response.json();
+
+      if (data.success) {
+        sessionId = data.sessionId;
+        pollForResult();
+      } else {
+        showError(data.error || 'Failed to start generation');
+      }
+    } catch (error) {
+      console.error('Error:', error);
+      showError('Network error. Please try again.');
+    }
+  }
+
+  function updateLoadingMessage(progress) {
+    const titleText = document.querySelector('.vto-loading-title-text');
+    const description = document.querySelector('.vto-loading-description');
+    const progressText = document.querySelector('.vto-progress-text');
+    
+    if (!titleText || !description || !progressText) return;
+    
+    // Keep static message as per design
+    titleText.textContent = 'Creating Your Look';
+    description.textContent = 'Our AI is carefully fitting the item to your photo.';
+    progressText.textContent = 'Processing...';
+  }
+
+  async function pollForResult() {
+    let attempts = 0;
+    const maxAttempts = 60;
+
+    const interval = setInterval(async () => {
+      attempts++;
+
+      if (attempts > maxAttempts) {
+        clearInterval(interval);
+        showError('Generation timeout. Please try again.');
+        return;
+      }
+
+      const progress = Math.min((attempts / maxAttempts) * 100, 95);
+      updateLoadingMessage(progress);
+
+      try {
+        const apiUrl = `/apps/proxy/api/storefront/try-on?sessionId=${sessionId}`;
+        const response = await fetch(apiUrl);
+        const data = await response.json();
+
+        if (data.status === 'completed' && data.generatedImage) {
+          clearInterval(interval);
+          updateLoadingMessage(100);
+          setTimeout(() => {
+            showResult(data.generatedImage);
+          }, 500);
+        } else if (data.status === 'failed') {
+          clearInterval(interval);
+          showError('Generation failed. Please try again.');
+        }
+      } catch (error) {
+        console.error('Polling error:', error);
+      }
+    }, 2000);
+  }
+
+  function showResult(imageUrl) {
+    destroyLottieAnimation();
+    
+    document.getElementById('vto-loading-state').style.display = 'none';
+    document.getElementById('vto-result-image').src = imageUrl;
+    document.getElementById('vto-result-image').style.display = 'block';
+    document.getElementById('vto-result-actions').style.display = 'flex';
+    document.getElementById('vto-generate-look-button').disabled = false;
+  }
+
+  function showError(message) {
+    destroyLottieAnimation();
+    
+    document.getElementById('vto-loading-state').style.display = 'none';
+    document.getElementById('vto-placeholder-state').style.display = 'none';
+    document.getElementById('vto-error-state').style.display = 'block';
+    document.getElementById('vto-error-message').textContent = message;
+    document.getElementById('vto-generate-look-button').disabled = false;
+  }
+
+  function downloadResult() {
+    const resultImage = document.getElementById('vto-result-image');
+    if (!resultImage.src) return;
+
+    const link = document.createElement('a');
+    link.href = resultImage.src;
+    link.download = `virtual-tryon-${Date.now()}.jpg`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  }
+
+  // Lottie Animation
+  function initLottieAnimation() {
+    const container = document.getElementById('vto-lottie-container');
+    if (!container || lottieAnimation) return;
+
+    if (lottieAnimation) {
+      lottieAnimation.destroy();
+      lottieAnimation = null;
+    }
+
+    const shop = Shopify?.shop || window.Shopify?.shop || '';
+    const animationUrl = `/apps/proxy/api/lottie-animation?shop=${encodeURIComponent(shop)}`;
+    
+    if (typeof lottie !== 'undefined') {
+      try {
+        lottieAnimation = lottie.loadAnimation({
+          container: container,
+          renderer: 'svg',
+          loop: true,
+          autoplay: true,
+          path: animationUrl,
+          rendererSettings: {
+            preserveAspectRatio: 'xMidYMid meet',
+            clearCanvas: true,
+            progressiveLoad: true
+          }
+        });
+      } catch (error) {
+        console.warn('Error loading Lottie:', error);
+      }
+    }
+  }
+
+  function destroyLottieAnimation() {
+    if (lottieAnimation) {
+      lottieAnimation.destroy();
+      lottieAnimation = null;
+    }
+    const container = document.getElementById('vto-lottie-container');
+    if (container) {
+      container.innerHTML = '';
+    }
+  }
+
+  // Make functions globally available
+  window.openVirtualTryOn = openVirtualTryOn;
+  window.closeVirtualTryOn = closeVirtualTryOn;
+</script>
+
+{% schema %}
+{
+  "name": "Virtual Try-On App",
+  "target": "body",
+  "settings": []
+}
+{% endschema %}

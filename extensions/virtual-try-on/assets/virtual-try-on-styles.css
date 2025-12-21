@@ -1,0 +1,705 @@
+/**
+ * Virtual Try-On Styles
+ * Modern UI inspired by Scorso Virtual Mirror
+ */
+
+/* ============================================
+   Design Tokens
+   ============================================ */
+
+:root {
+  /* Colors - Scorso-inspired palette */
+  --vto-primary: #0a4d3c;
+  --vto-primary-light: #1a7a5c;
+  --vto-primary-dark: #064030;
+  --vto-accent: #ca8a04;
+  --vto-accent-light: #fbbf24;
+  
+  /* Background gradients */
+  --vto-bg-gradient: linear-gradient(135deg, #f0fdf4 0%, #dcfce7 100%);
+  --vto-card-bg: #ffffff;
+  --vto-overlay-bg: rgba(0, 0, 0, 0.6);
+  
+  /* Text colors */
+  --vto-text-primary: #1f2937;
+  --vto-text-secondary: #6b7280;
+  --vto-text-muted: #9ca3af;
+  --vto-text-success: #059669;
+  
+  /* Borders */
+  --vto-border-color: #e5e7eb;
+  --vto-border-dashed: #94a3b8;
+  --vto-border-radius: 12px;
+  --vto-border-radius-lg: 16px;
+  --vto-border-radius-sm: 8px;
+  
+  /* Shadows */
+  --vto-shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+  --vto-shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+  --vto-shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+  --vto-shadow-xl: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+  
+  /* Spacing */
+  --vto-spacing-xs: 8px;
+  --vto-spacing-sm: 12px;
+  --vto-spacing-md: 16px;
+  --vto-spacing-lg: 24px;
+  --vto-spacing-xl: 32px;
+  --vto-spacing-2xl: 48px;
+  
+  /* Typography */
+  --vto-font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+  --vto-font-size-xs: 12px;
+  --vto-font-size-sm: 14px;
+  --vto-font-size-base: 16px;
+  --vto-font-size-lg: 18px;
+  --vto-font-size-xl: 20px;
+  --vto-font-size-2xl: 24px;
+  --vto-font-size-3xl: 30px;
+  
+  /* Transitions */
+  --vto-transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  --vto-transition-fast: all 0.15s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* ============================================
+   Base Styles
+   ============================================ */
+
+.vto-container {
+  font-family: var(--vto-font-family);
+  color: var(--vto-text-primary);
+  line-height: 1.5;
+}
+
+/* ============================================
+   Layout Components
+   ============================================ */
+
+.vto-two-panel-layout {
+  display: grid;
+  grid-template-columns: 380px 1fr;
+  gap: var(--vto-spacing-xl);
+  max-width: 1400px;
+  margin: 0 auto;
+  padding: var(--vto-spacing-xl);
+  min-height: 600px;
+}
+
+.vto-left-panel {
+  display: flex;
+  flex-direction: column;
+  gap: var(--vto-spacing-md);
+}
+
+.vto-right-panel {
+  display: flex;
+  flex-direction: column;
+  gap: var(--vto-spacing-md);
+}
+
+/* ============================================
+   Card Components
+   ============================================ */
+
+.vto-card {
+  background: var(--vto-card-bg);
+  border-radius: var(--vto-border-radius);
+  padding: var(--vto-spacing-lg);
+  box-shadow: var(--vto-shadow-md);
+  transition: var(--vto-transition);
+}
+
+.vto-card:hover {
+  box-shadow: var(--vto-shadow-lg);
+}
+
+.vto-card-header {
+  display: flex;
+  align-items: center;
+  gap: var(--vto-spacing-sm);
+  margin-bottom: var(--vto-spacing-md);
+  font-weight: 600;
+  font-size: var(--vto-font-size-base);
+  color: var(--vto-text-primary);
+}
+
+.vto-card-icon {
+  width: 20px;
+  height: 20px;
+  color: var(--vto-primary);
+}
+
+/* ============================================
+   Selected Item Card
+   ============================================ */
+
+.vto-selected-item {
+  display: flex;
+  gap: var(--vto-spacing-md);
+  align-items: flex-start;
+}
+
+.vto-product-image {
+  width: 80px;
+  height: 80px;
+  border-radius: var(--vto-border-radius-sm);
+  object-fit: cover;
+  flex-shrink: 0;
+}
+
+.vto-product-info {
+  flex: 1;
+}
+
+.vto-product-title {
+  font-size: var(--vto-font-size-lg);
+  font-weight: 600;
+  color: var(--vto-text-primary);
+  margin: 0 0 4px 0;
+}
+
+.vto-product-subtitle {
+  font-size: var(--vto-font-size-sm);
+  color: var(--vto-text-secondary);
+  margin: 0;
+}
+
+/* ============================================
+   Photo Upload Card
+   ============================================ */
+
+.vto-upload-area {
+  border: 2px dashed var(--vto-border-dashed);
+  border-radius: var(--vto-border-radius);
+  padding: var(--vto-spacing-xl);
+  text-align: center;
+  cursor: pointer;
+  transition: var(--vto-transition);
+  background: #f9fafb;
+  min-height: 200px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+}
+
+.vto-upload-area:hover {
+  border-color: var(--vto-primary);
+  background: #f0fdf4;
+}
+
+.vto-upload-area.drag-over {
+  border-color: var(--vto-primary);
+  background: #dcfce7;
+}
+
+.vto-upload-icon {
+  font-size: 48px;
+  margin-bottom: var(--vto-spacing-md);
+}
+
+.vto-upload-text {
+  font-size: var(--vto-font-size-base);
+  font-weight: 600;
+  color: var(--vto-text-primary);
+  margin: 0 0 4px 0;
+}
+
+.vto-upload-subtext {
+  font-size: var(--vto-font-size-sm);
+  color: var(--vto-text-secondary);
+  margin: 0;
+}
+
+.vto-upload-link {
+  color: var(--vto-primary);
+  text-decoration: underline;
+  cursor: pointer;
+}
+
+.vto-upload-link:hover {
+  color: var(--vto-primary-light);
+}
+
+.vto-preview-container {
+  position: relative;
+}
+
+.vto-preview-image {
+  width: 100%;
+  border-radius: var(--vto-border-radius);
+  max-height: 300px;
+  object-fit: contain;
+}
+
+.vto-status-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  background: #dcfce7;
+  color: var(--vto-text-success);
+  border-radius: 20px;
+  font-size: var(--vto-font-size-sm);
+  font-weight: 500;
+  margin-top: var(--vto-spacing-sm);
+}
+
+.vto-status-icon {
+  width: 16px;
+  height: 16px;
+}
+
+/* ============================================
+   Result Panel
+   ============================================ */
+
+.vto-result-panel {
+  background: var(--vto-card-bg);
+  border-radius: var(--vto-border-radius-lg);
+  padding: var(--vto-spacing-xl);
+  box-shadow: var(--vto-shadow-lg);
+  display: flex;
+  flex-direction: column;
+  min-height: 500px;
+}
+
+.vto-result-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: var(--vto-spacing-lg);
+}
+
+.vto-result-title {
+  display: flex;
+  align-items: center;
+  gap: var(--vto-spacing-sm);
+  font-size: var(--vto-font-size-xl);
+  font-weight: 700;
+  color: var(--vto-text-primary);
+  margin: 0;
+}
+
+.vto-result-icon {
+  width: 32px;
+  height: 32px;
+  padding: 6px;
+  background: var(--vto-primary);
+  color: white;
+  border-radius: 8px;
+}
+
+.vto-result-content {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #f9fafb;
+  border-radius: var(--vto-border-radius);
+  padding: var(--vto-spacing-lg);
+  margin-bottom: var(--vto-spacing-lg);
+}
+
+.vto-result-image {
+  max-width: 100%;
+  max-height: 600px;
+  border-radius: var(--vto-border-radius);
+  box-shadow: var(--vto-shadow-md);
+}
+
+.vto-result-actions {
+  display: flex;
+  gap: var(--vto-spacing-md);
+}
+
+/* ============================================
+   Buttons
+   ============================================ */
+
+.vto-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--vto-spacing-sm);
+  padding: 14px 24px;
+  font-size: var(--vto-font-size-base);
+  font-weight: 600;
+  border: none;
+  border-radius: var(--vto-border-radius-sm);
+  cursor: pointer;
+  transition: var(--vto-transition);
+  font-family: var(--vto-font-family);
+  text-decoration: none;
+  white-space: nowrap;
+}
+
+.vto-button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.vto-button-primary {
+  background: var(--vto-primary);
+  color: white;
+}
+
+.vto-button-primary:hover:not(:disabled) {
+  background: var(--vto-primary-light);
+  transform: translateY(-2px);
+  box-shadow: var(--vto-shadow-lg);
+}
+
+.vto-button-secondary {
+  background: white;
+  color: var(--vto-text-primary);
+  border: 2px solid var(--vto-border-color);
+}
+
+.vto-button-secondary:hover:not(:disabled) {
+  border-color: var(--vto-primary);
+  color: var(--vto-primary);
+}
+
+.vto-button-dark {
+  background: #1f2937;
+  color: white;
+}
+
+.vto-button-dark:hover:not(:disabled) {
+  background: #111827;
+  transform: translateY(-2px);
+  box-shadow: var(--vto-shadow-lg);
+}
+
+.vto-button-full {
+  width: 100%;
+}
+
+.vto-button-icon {
+  width: 20px;
+  height: 20px;
+}
+
+/* ============================================
+   Promotional Sections
+   ============================================ */
+
+.vto-promo-banner {
+  background: linear-gradient(135deg, var(--vto-primary) 0%, var(--vto-primary-light) 100%);
+  color: white;
+  padding: var(--vto-spacing-xl);
+  border-radius: var(--vto-border-radius-lg);
+  text-align: center;
+  margin-bottom: var(--vto-spacing-xl);
+}
+
+.vto-promo-title {
+  font-size: var(--vto-font-size-2xl);
+  font-weight: 700;
+  margin: 0 0 8px 0;
+}
+
+.vto-promo-subtitle {
+  font-size: var(--vto-font-size-sm);
+  opacity: 0.9;
+  margin: 0 0 var(--vto-spacing-lg) 0;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.vto-promo-steps {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: var(--vto-spacing-lg);
+  margin-top: var(--vto-spacing-lg);
+}
+
+.vto-promo-step {
+  text-align: center;
+}
+
+.vto-promo-step-number {
+  display: inline-block;
+  width: 32px;
+  height: 32px;
+  background: rgba(255, 255, 255, 0.2);
+  border-radius: 50%;
+  line-height: 32px;
+  font-weight: 700;
+  margin-bottom: var(--vto-spacing-sm);
+}
+
+.vto-promo-step-text {
+  font-size: var(--vto-font-size-sm);
+  margin: 0;
+}
+
+/* ============================================
+   How It Works Section
+   ============================================ */
+
+.vto-how-it-works {
+  background: white;
+  padding: var(--vto-spacing-2xl) var(--vto-spacing-xl);
+  border-radius: var(--vto-border-radius-lg);
+  margin: var(--vto-spacing-xl) 0;
+}
+
+.vto-section-title {
+  font-size: var(--vto-font-size-2xl);
+  font-weight: 700;
+  text-align: center;
+  margin: 0 0 var(--vto-spacing-xl) 0;
+  color: var(--vto-text-primary);
+}
+
+.vto-steps-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: var(--vto-spacing-xl);
+}
+
+.vto-step {
+  text-align: center;
+}
+
+.vto-step-icon {
+  width: 64px;
+  height: 64px;
+  margin: 0 auto var(--vto-spacing-md);
+  font-size: 48px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.vto-step-title {
+  font-size: var(--vto-font-size-lg);
+  font-weight: 600;
+  margin: 0 0 8px 0;
+  color: var(--vto-text-primary);
+}
+
+.vto-step-description {
+  font-size: var(--vto-font-size-sm);
+  color: var(--vto-text-secondary);
+  margin: 0;
+  line-height: 1.6;
+}
+
+/* ============================================
+   Beta Disclaimer
+   ============================================ */
+
+.vto-beta-disclaimer,
+.vto-beta-disclaimer-card {
+  background: #fff8e1;
+  border: 1px solid #ffecb3;
+  border-radius: var(--vto-border-radius-lg);
+  padding: var(--vto-spacing-lg);
+  margin: var(--vto-spacing-xl) 0;
+  text-align: center;
+  box-shadow: var(--vto-shadow-sm);
+}
+
+.vto-beta-title {
+  font-size: var(--vto-font-size-sm);
+  font-weight: 700;
+  color: #795548;
+  margin: 0 0 8px 0;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.vto-beta-text {
+  font-size: var(--vto-font-size-sm);
+  color: #795548;
+  margin: 0;
+  line-height: 1.6;
+}
+
+.vto-beta-link {
+  color: #4caf50;
+  text-decoration: underline;
+  font-weight: 500;
+}
+
+.vto-beta-link:hover {
+  color: #45a049;
+}
+
+/* ============================================
+   Modal Specific Styles
+   ============================================ */
+
+.vto-modal {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  z-index: 9999;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.vto-modal-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: var(--vto-overlay-bg);
+  backdrop-filter: blur(4px);
+}
+
+.vto-modal-content {
+  position: relative;
+  background: white;
+  border-radius: var(--vto-border-radius-lg);
+  max-width: 1200px;
+  width: 95%;
+  max-height: 90vh;
+  overflow-y: auto;
+  box-shadow: var(--vto-shadow-xl);
+  animation: slideUp 0.3s ease;
+}
+
+@keyframes slideUp {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.vto-modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: var(--vto-spacing-lg);
+  border-bottom: 1px solid var(--vto-border-color);
+  position: sticky;
+  top: 0;
+  background: white;
+  z-index: 10;
+}
+
+.vto-modal-title {
+  font-size: var(--vto-font-size-xl);
+  font-weight: 700;
+  margin: 0;
+  color: var(--vto-text-primary);
+}
+
+.vto-close-button {
+  background: none;
+  border: none;
+  font-size: 28px;
+  cursor: pointer;
+  color: var(--vto-text-secondary);
+  padding: 0;
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--vto-border-radius-sm);
+  transition: var(--vto-transition-fast);
+}
+
+.vto-close-button:hover {
+  background: #f3f4f6;
+  color: var(--vto-text-primary);
+}
+
+.vto-modal-body {
+  padding: var(--vto-spacing-lg);
+}
+
+/* ============================================
+   Responsive Design
+   ============================================ */
+
+@media (max-width: 1024px) {
+  .vto-two-panel-layout {
+    grid-template-columns: 1fr;
+    gap: var(--vto-spacing-lg);
+  }
+  
+  .vto-promo-steps,
+  .vto-steps-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 768px) {
+  .vto-two-panel-layout {
+    padding: var(--vto-spacing-md);
+  }
+  
+  .vto-result-panel {
+    padding: var(--vto-spacing-md);
+    min-height: 400px;
+  }
+  
+  .vto-result-actions {
+    flex-direction: column;
+  }
+  
+  .vto-button {
+    width: 100%;
+  }
+  
+  .vto-modal-content {
+    width: 100%;
+    max-height: 100vh;
+    border-radius: 0;
+  }
+}
+
+@media (max-width: 480px) {
+  .vto-promo-title {
+    font-size: var(--vto-font-size-xl);
+  }
+  
+  .vto-section-title {
+    font-size: var(--vto-font-size-xl);
+  }
+  
+  .vto-result-title {
+    font-size: var(--vto-font-size-lg);
+  }
+}
+
+/* ============================================
+   Utility Classes
+   ============================================ */
+
+.vto-text-center {
+  text-align: center;
+}
+
+.vto-mt-sm { margin-top: var(--vto-spacing-sm); }
+.vto-mt-md { margin-top: var(--vto-spacing-md); }
+.vto-mt-lg { margin-top: var(--vto-spacing-lg); }
+.vto-mt-xl { margin-top: var(--vto-spacing-xl); }
+
+.vto-mb-sm { margin-bottom: var(--vto-spacing-sm); }
+.vto-mb-md { margin-bottom: var(--vto-spacing-md); }
+.vto-mb-lg { margin-bottom: var(--vto-spacing-lg); }
+.vto-mb-xl { margin-bottom: var(--vto-spacing-xl); }
+
+.vto-hidden {
+  display: none !important;
+}
+
+.vto-visible {
+  display: block !important;
+}

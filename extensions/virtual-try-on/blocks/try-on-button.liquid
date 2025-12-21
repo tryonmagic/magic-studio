@@ -1,0 +1,311 @@
+{% comment %}
+  Virtual Try-On Button Block
+  This block adds a "Virtual Try-On" button to product pages
+{% endcomment %}
+
+<div class="virtual-tryon-button-wrapper" data-product-id="{{ product.id }}">
+  <button 
+    type="button" 
+    class="virtual-tryon-button"
+    onclick="openVirtualTryOn()"
+    {% if block.settings.button_style %}data-button-style="{{ block.settings.button_style }}"{% endif %}
+    {% if block.settings.button_gradient_start %}data-gradient-start="{{ block.settings.button_gradient_start }}"{% endif %}
+    {% if block.settings.button_gradient_end %}data-gradient-end="{{ block.settings.button_gradient_end }}"{% endif %}
+    {% if block.settings.button_radius %}data-radius="{{ block.settings.button_radius }}"{% endif %}
+    {% if block.settings.button_border_color %}data-border-color="{{ block.settings.button_border_color }}"{% endif %}
+  >
+    ✨ {{ block.settings.button_text | default: "Virtual Try-On" }}
+  </button>
+</div>
+
+<!-- Hidden product data for JavaScript -->
+<script type="application/json" data-product-json>
+  {
+    "id": "{{ product.id }}",
+    "title": {{ product.title | json }},
+    "featured_image": "{{ product.featured_image | img_url: 'master' }}",
+    "price": {{ product.price | money_without_currency | remove: ',' }},
+    "variants": [
+      {% for variant in product.variants %}
+      {
+        "id": "{{ variant.id }}",
+        "title": {{ variant.title | json }},
+        "price": {{ variant.price | money_without_currency | remove: ',' }},
+        "available": {{ variant.available | json }}
+      }{% unless forloop.last %},{% endunless %}
+      {% endfor %}
+    ]
+  }
+</script>
+
+<style>
+  .virtual-tryon-button-wrapper {
+    margin: 0;
+    width: 100%;
+  }
+
+  /* Minimal styling - will be overridden by JavaScript to match theme */
+  .virtual-tryon-button {
+    width: 100%;
+    display: block;
+    cursor: pointer;
+    box-sizing: border-box;
+    margin: 0;
+    /* Reset any default button styles */
+    appearance: none;
+    -webkit-appearance: none;
+    -moz-appearance: none;
+  }
+</style>
+
+<script>
+  // Apply button styles from app admin settings (single source of truth)
+  (function() {
+    const shop = Shopify?.shop || window.Shopify?.shop || '';
+    const button = document.querySelector('.virtual-tryon-button');
+    
+    if (!button || !shop) return;
+
+    function findThemeButton() {
+      // Find theme buttons for structure (padding, font, etc.) but not colors
+      const selectors = [
+        'button[name="add"]',
+        'button[type="submit"][name="add"]',
+        '.product-form__cart-submit',
+        '.product-form__submit',
+        '[data-add-to-cart]',
+        'form[action*="/cart/add"] button[type="submit"]',
+        'form.product-form button[type="submit"]',
+      ];
+      
+      for (const selector of selectors) {
+        const buttons = document.querySelectorAll(selector);
+        for (const btn of buttons) {
+          if (btn.classList.contains('virtual-tryon-button')) continue;
+          if (btn.offsetParent !== null && window.getComputedStyle(btn).display !== 'none') {
+            return btn;
+          }
+        }
+      }
+      return null;
+    }
+
+    function applyThemeStructure(themeButton) {
+      if (!themeButton) return;
+      
+      const computed = window.getComputedStyle(themeButton);
+      
+      // Only copy structural styles, NOT colors
+      const structuralStyles = [
+        'padding', 'paddingTop', 'paddingRight', 'paddingBottom', 'paddingLeft',
+        'fontSize', 'fontWeight', 'fontFamily', 'letterSpacing', 'lineHeight',
+        'minHeight', 'height', 'width',
+        'display', 'justifyContent', 'alignItems',
+        'transition', 'cursor', 'boxSizing'
+      ];
+      
+      structuralStyles.forEach(prop => {
+        const value = computed[prop];
+        if (value && value !== 'auto' && value !== 'normal') {
+          button.style[prop] = value;
+        }
+      });
+    }
+
+    function applyAppSettings(settings) {
+      if (!settings) return;
+
+      // Apply border radius from settings
+      if (settings.buttonRadius) {
+        button.style.borderRadius = settings.buttonRadius;
+      }
+
+      // Apply styles based on button style
+      if (settings.buttonStyle === 'custom') {
+        // Apply custom gradient colors
+        if (settings.buttonGradientStart && settings.buttonGradientEnd) {
+          button.style.background = `linear-gradient(135deg, ${settings.buttonGradientStart} 0%, ${settings.buttonGradientEnd} 100%)`;
+          button.style.color = 'white';
+        } else if (settings.buttonGradientStart) {
+          button.style.backgroundColor = settings.buttonGradientStart;
+          button.style.color = 'white';
+        }
+        
+        // Apply border color
+        if (settings.buttonBorderColor) {
+          button.style.border = `2px solid ${settings.buttonBorderColor}`;
+        } else {
+          button.style.border = 'none';
+        }
+      } else if (settings.buttonStyle === 'primary') {
+        // Primary style - gradient purple/blue
+        if (settings.buttonGradientStart && settings.buttonGradientEnd) {
+          button.style.background = `linear-gradient(135deg, ${settings.buttonGradientStart} 0%, ${settings.buttonGradientEnd} 100%)`;
+        } else {
+          button.style.background = 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)';
+        }
+        button.style.color = 'white';
+        if (settings.buttonBorderColor) {
+          button.style.border = `2px solid ${settings.buttonBorderColor}`;
+        } else {
+          button.style.border = 'none';
+        }
+      } else if (settings.buttonStyle === 'secondary') {
+        // Secondary style - light gray
+        button.style.background = '#f3f4f6';
+        button.style.color = '#1f2937';
+        if (settings.buttonBorderColor) {
+          button.style.border = `2px solid ${settings.buttonBorderColor}`;
+        } else {
+          button.style.border = '2px solid #d1d5db';
+        }
+      } else if (settings.buttonStyle === 'tertiary') {
+        // Tertiary style - transparent with border
+        button.style.background = 'transparent';
+        if (settings.buttonGradientStart) {
+          button.style.color = settings.buttonGradientStart;
+          button.style.border = `2px solid ${settings.buttonGradientStart}`;
+        } else {
+          button.style.color = '#667eea';
+          button.style.border = '2px solid #667eea';
+        }
+      }
+    }
+
+    function getThemeEditorSettings() {
+      // Read settings from theme editor (data attributes)
+      const buttonStyle = button.dataset.buttonStyle || button.getAttribute('data-button-style');
+      const gradientStart = button.dataset.gradientStart || button.getAttribute('data-gradient-start');
+      const gradientEnd = button.dataset.gradientEnd || button.getAttribute('data-gradient-end');
+      const radius = button.dataset.radius || button.getAttribute('data-radius');
+      const borderColor = button.dataset.borderColor || button.getAttribute('data-border-color');
+      
+      // Return settings if any exist
+      if (buttonStyle || gradientStart || gradientEnd || radius || borderColor) {
+        return {
+          buttonStyle,
+          buttonGradientStart: gradientStart,
+          buttonGradientEnd: gradientEnd,
+          buttonRadius: radius,
+          buttonBorderColor: borderColor
+        };
+      }
+      return null;
+    }
+
+    function applyStyles() {
+      // First, apply theme button structure (padding, font, etc.)
+      const themeButton = findThemeButton();
+      applyThemeStructure(themeButton);
+      
+      // Check if theme editor has settings
+      const themeSettings = getThemeEditorSettings();
+      
+      if (themeSettings) {
+        // Use theme editor settings (priority)
+        applyAppSettings(themeSettings);
+      } else {
+        // Fall back to app admin settings
+        fetch(`/apps/proxy/api/button-settings?shop=${shop}`)
+          .then(response => response.json())
+          .then(settings => {
+            applyAppSettings(settings);
+          })
+          .catch(error => {
+            console.warn('Failed to load button settings:', error);
+            // Apply default primary style
+            button.style.background = 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)';
+            button.style.color = 'white';
+            button.style.border = 'none';
+            button.style.borderRadius = '8px';
+          });
+      }
+    }
+
+    // Apply styles immediately
+    applyStyles();
+    
+    // Retry if theme button isn't loaded yet
+    setTimeout(applyStyles, 100);
+    setTimeout(applyStyles, 500);
+    
+    // Watch for DOM changes (for dynamic themes)
+    const observer = new MutationObserver(() => {
+      applyStyles();
+    });
+    observer.observe(document.body, { childList: true, subtree: true });
+    setTimeout(() => observer.disconnect(), 3000); // Stop watching after 3s
+  })();
+</script>
+
+{% schema %}
+{
+  "name": "Virtual Try-On Button",
+  "target": "section",
+  "settings": [
+    {
+      "type": "text",
+      "id": "button_text",
+      "label": "Button Text",
+      "default": "Virtual Try-On"
+    },
+    {
+      "type": "select",
+      "id": "button_style",
+      "label": "Button Style",
+      "options": [
+        {
+          "value": "primary",
+          "label": "Primary"
+        },
+        {
+          "value": "secondary",
+          "label": "Secondary"
+        },
+        {
+          "value": "tertiary",
+          "label": "Tertiary"
+        },
+        {
+          "value": "custom",
+          "label": "Custom"
+        }
+      ],
+      "default": "primary"
+    },
+    {
+      "type": "header",
+      "content": "Custom Button Styling"
+    },
+    {
+      "type": "paragraph",
+      "content": "These settings apply when Button Style is set to 'Custom'. Changes here automatically sync with app admin settings."
+    },
+    {
+      "type": "color",
+      "id": "button_gradient_start",
+      "label": "Gradient Start Color",
+      "default": "#45C0B6"
+    },
+    {
+      "type": "color",
+      "id": "button_gradient_end",
+      "label": "Gradient End Color",
+      "default": "#1D4D48"
+    },
+    {
+      "type": "text",
+      "id": "button_radius",
+      "label": "Border Radius",
+      "default": "8px",
+      "info": "e.g., 8px, 12px, 50%"
+    },
+    {
+      "type": "color",
+      "id": "button_border_color",
+      "label": "Border Color",
+      "default": "#6B6B6B"
+    }
+  ]
+}
+{% endschema %}

@@ -1,0 +1,12 @@
+api_version = "2025-01"
+
+[[extensions]]
+uid = "fb5cefd5-2d97-5cfd-2187-978ed66d1afa44ee5be9"
+type = "theme"
+name = "Virtual Try-On"
+handle = "virtual-try-on"
+
+[extensions.settings]
+  [[extensions.settings.blocks]]
+  type = "app-embed"
+  name = "Virtual Try-On"
