@@ -7,7 +7,7 @@
 {{ 'virtual-try-on-styles.css' | asset_url | stylesheet_tag }}
 
 <!-- Lottie Animation Library -->
-<script src="https://cdnjs.cloudflare.com/ajax/libs/bodymovin/5.12.2/lottie.min.js" integrity="sha512-jEnuDt6jfecCjthQAJ+ed0MTVA++5ZKmlUcmDGBv2vUI/REn6FuIdixLNnQT+vKusE2hhTk2is3cFvv5wA+Sgg==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+<script src="{{ 'lottie.min.js' | asset_url }}" defer></script>
 
 <div class="vto-container" style="background: linear-gradient(135deg, #f0fdf4 0%, #dcfce7 100%); min-height: 100vh; padding: 40px 0;">
   
@@ -47,7 +47,7 @@
           Selected Item
         </div>
         <div class="vto-selected-item">
-          <img id="vto-full-product-thumbnail" src="{{ product.featured_image | img_url: 'medium' }}" alt="{{ product.title }}" class="vto-product-image">
+          <img id="vto-full-product-thumbnail" src="{{ product.featured_image | image_url: width: 400 }}" alt="{{ product.title }}" class="vto-product-image" width="200" height="200">
           <div class="vto-product-info">
             <h3 class="vto-product-title" id="vto-full-product-name">{{ product.title }}</h3>
             <p class="vto-product-subtitle">Ready to try on? Upload your photo below.</p>
@@ -74,7 +74,7 @@
 
         <!-- Preview Area -->
         <div id="vto-full-preview-area" class="vto-preview-container" style="display: none;">
-          <img id="vto-full-preview-image" src="" alt="Preview" class="vto-preview-image">
+          <img id="vto-full-preview-image" src="" alt="Preview" class="vto-preview-image" width="400" height="400">
           <div class="vto-status-badge">
             <svg class="vto-status-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
@@ -127,7 +127,7 @@
           </div>
 
           <!-- Result Image -->
-          <img id="vto-full-result-image" src="" alt="Try-on Result" class="vto-result-image" style="display: none;">
+          <img id="vto-full-result-image" src="" alt="Try-on Result" class="vto-result-image" width="400" height="400" style="display: none;">
 
           <!-- Placeholder State -->
           <div id="vto-full-placeholder-state" style="text-align: center; padding: 60px 20px;">
@@ -317,7 +317,7 @@
     
     const productId = productData?.id || productWrapper?.dataset?.productId || "{{ product.id }}";
     const productTitle = productData?.title || document.querySelector('.product-title, h1, .product__title')?.textContent?.trim() || "{{ product.title | escape }}";
-    const productImage = productData?.featured_image || document.querySelector('.product-image img, .product__media img')?.src || "{{ product.featured_image | img_url: 'master' }}";
+    const productImage = productData?.featured_image || document.querySelector('.product-image img, .product__media img')?.src || "{{ product.featured_image | image_url: width: 2048 }}";
 
     fullCurrentProduct = {
       id: productId,
@@ -616,7 +616,7 @@
       "id": "promo_subtitle",
       "label": "Promotional Banner Subtitle",
       "default": "Get 100 Taka off your next purchase"
-    },
+    }
   ]
 }
 {% endschema %}

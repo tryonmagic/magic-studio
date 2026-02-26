@@ -1,29 +1,40 @@
 {% comment %}
-  Virtual Try-On Button Block
-  This block adds a "Virtual Try-On" button to product pages
+  Virtual Try-On Button Block — Self-Contained
+  Works standalone without requiring the App Embed to be enabled.
+  Guards prevent duplication when app-embed.liquid is also active.
 {% endcomment %}
 
-<div class="virtual-tryon-button-wrapper" data-product-id="{{ product.id }}">
-  <button 
-    type="button" 
+<!-- ── BUTTON HTML ─────────────────────────────────────────────────────── -->
+<div
+  class="virtual-tryon-button-wrapper"
+  id="vto-wrapper-{{ block.id }}"
+  data-product-id="{{ product.id }}"
+  data-block-id="{{ block.id }}"
+>
+  <button
+    type="button"
     class="virtual-tryon-button"
-    onclick="openVirtualTryOn()"
+    id="vto-btn-{{ block.id }}"
     {% if block.settings.button_style %}data-button-style="{{ block.settings.button_style }}"{% endif %}
     {% if block.settings.button_gradient_start %}data-gradient-start="{{ block.settings.button_gradient_start }}"{% endif %}
     {% if block.settings.button_gradient_end %}data-gradient-end="{{ block.settings.button_gradient_end }}"{% endif %}
     {% if block.settings.button_radius %}data-radius="{{ block.settings.button_radius }}"{% endif %}
     {% if block.settings.button_border_color %}data-border-color="{{ block.settings.button_border_color }}"{% endif %}
+    aria-label="{{ block.settings.button_text | default: 'Virtual Try-On' }}"
   >
-    ✨ {{ block.settings.button_text | default: "Virtual Try-On" }}
+    {% if block.settings.button_icon != blank %}
+    <span class="vto-btn-icon" aria-hidden="true">{{ block.settings.button_icon }}</span>
+    {% endif %}
+    <span class="vto-btn-label">{{ block.settings.button_text | default: "Virtual Try-On" }}</span>
   </button>
 </div>
 
-<!-- Hidden product data for JavaScript -->
-<script type="application/json" data-product-json>
+<!-- Product data for JS -->
+<script type="application/json" id="vto-product-json-{{ block.id }}">
   {
     "id": "{{ product.id }}",
     "title": {{ product.title | json }},
-    "featured_image": "{{ product.featured_image | img_url: 'master' }}",
+    "featured_image": "{{ product.featured_image | image_url: width: 2048 }}",
     "price": {{ product.price | money_without_currency | remove: ',' }},
     "variants": [
       {% for variant in product.variants %}
@@ -38,204 +49,495 @@
   }
 </script>
 
+<!-- ── BUTTON STYLES (scoped) ─────────────────────────────────────────── -->
 <style>
-  .virtual-tryon-button-wrapper {
-    margin: 0;
-    width: 100%;
-  }
+  #vto-wrapper-{{ block.id }} { margin: 10px 0 0; width: 100%; }
 
-  /* Minimal styling - will be overridden by JavaScript to match theme */
-  .virtual-tryon-button {
+  #vto-btn-{{ block.id }} {
     width: 100%;
-    display: block;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
     cursor: pointer;
     box-sizing: border-box;
     margin: 0;
-    /* Reset any default button styles */
+    font-weight: 600;
+    letter-spacing: 0.3px;
+    transition: opacity 0.2s ease, transform 0.1s ease;
     appearance: none;
     -webkit-appearance: none;
-    -moz-appearance: none;
+    border: none;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    border-radius: 8px;
+    padding: 14px 20px;
+    font-size: 15px;
   }
+  #vto-btn-{{ block.id }}:hover  { opacity: 0.88; }
+  #vto-btn-{{ block.id }}:active { transform: scale(0.985); }
+  .vto-btn-icon { font-size: 16px; line-height: 1; flex-shrink: 0; }
 </style>
 
+<!-- ── SELF-BOOTSTRAP: CSS + LOTTIE + MODAL (all guarded) ────────────── -->
 <script>
-  // Apply button styles from app admin settings (single source of truth)
-  (function() {
-    const shop = Shopify?.shop || window.Shopify?.shop || '';
-    const button = document.querySelector('.virtual-tryon-button');
-    
-    if (!button || !shop) return;
+(function () {
+  // 1. Load modal stylesheet if not already present
+  if (!document.querySelector('link[href*="virtual-try-on-styles"]')) {
+    var link = document.createElement('link');
+    link.rel  = 'stylesheet';
+    link.href = '{{ "virtual-try-on-styles.css" | asset_url }}';
+    document.head.appendChild(link);
+  }
 
-    function findThemeButton() {
-      // Find theme buttons for structure (padding, font, etc.) but not colors
-      const selectors = [
-        'button[name="add"]',
-        'button[type="submit"][name="add"]',
-        '.product-form__cart-submit',
-        '.product-form__submit',
-        '[data-add-to-cart]',
-        'form[action*="/cart/add"] button[type="submit"]',
-        'form.product-form button[type="submit"]',
-      ];
-      
-      for (const selector of selectors) {
-        const buttons = document.querySelectorAll(selector);
-        for (const btn of buttons) {
-          if (btn.classList.contains('virtual-tryon-button')) continue;
-          if (btn.offsetParent !== null && window.getComputedStyle(btn).display !== 'none') {
-            return btn;
-          }
-        }
+  // 2. Load Lottie if not already loading/loaded
+  if (typeof lottie === 'undefined' && !window.__vtoLottieLoading) {
+    window.__vtoLottieLoading = true;
+    var ls = document.createElement('script');
+    ls.src = '{{ "lottie.min.js" | asset_url }}';
+    document.head.appendChild(ls);
+  }
+
+  // 3. Inject modal HTML once (app-embed may have already done this)
+  if (!document.getElementById('virtual-tryon-modal')) {
+    var modal = document.createElement('div');
+    modal.innerHTML = '<div id="virtual-tryon-modal" class="vto-modal vto-container" style="display:none;">'
+      + '<div class="vto-modal-overlay" onclick="closeVirtualTryOn()"></div>'
+      + '<div class="vto-modal-content">'
+
+        /* ── Gradient header ── */
+        + '<div class="vto-modal-header">'
+          + '<div class="vto-modal-header-inner">'
+            + '<div class="vto-modal-header-icon">\u2728</div>'
+            + '<div>'
+              + '<h2 class="vto-modal-title">Virtual Fitting Room</h2>'
+              + '<p class="vto-modal-subtitle">AI-powered virtual try-on technology</p>'
+            + '</div>'
+          + '</div>'
+          + '<button class="vto-close-button" onclick="closeVirtualTryOn()" aria-label="Close">\u00d7</button>'
+        + '</div>'
+
+        /* ── Step progress bar ── */
+        + '<div class="vto-step-progress">'
+          + '<div class="vto-step-item vto-step-active" id="vto-step-1"><div class="vto-step-num">1</div><span class="vto-step-label">Upload Photo</span></div>'
+          + '<div class="vto-step-divider" id="vto-divider-1"></div>'
+          + '<div class="vto-step-item" id="vto-step-2"><div class="vto-step-num">2</div><span class="vto-step-label">Generate</span></div>'
+          + '<div class="vto-step-divider" id="vto-divider-2"></div>'
+          + '<div class="vto-step-item" id="vto-step-3"><div class="vto-step-num">3</div><span class="vto-step-label">Your Look</span></div>'
+        + '</div>'
+
+        /* ── Two-panel body ── */
+        + '<div class="vto-modal-body">'
+          + '<div class="vto-two-panel-layout">'
+
+            /* Left panel */
+            + '<div class="vto-left-panel">'
+
+              /* Selected item card */
+              + '<div class="vto-card">'
+                + '<div class="vto-card-header"><span class="vto-card-icon">\uD83D\uDCE6</span> Selected Item</div>'
+                + '<div class="vto-selected-item">'
+                  + '<img id="vto-product-thumbnail" src="" alt="Product" class="vto-product-image" width="80" height="80">'
+                  + '<div class="vto-product-info">'
+                    + '<h3 class="vto-product-title" id="vto-product-name">Product</h3>'
+                    + '<p class="vto-product-subtitle">Ready to try on? Upload your photo below.</p>'
+                  + '</div>'
+                + '</div>'
+              + '</div>'
+
+              /* Upload photo card */
+              + '<div class="vto-card">'
+                + '<div class="vto-card-header"><span class="vto-card-icon">\uD83D\uDCF8</span> Your Photo</div>'
+                + '<div id="vto-upload-area-container">'
+                  + '<div class="vto-upload-area" id="vto-drop-zone" onclick="document.getElementById(\'vto-file-input\').click()">'
+                    + '<div class="vto-upload-icon-wrap"><svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg></div>'
+                    + '<p class="vto-upload-text">Drop your photo here</p>'
+                    + '<p class="vto-upload-subtext">or <span class="vto-upload-link">browse files</span></p>'
+                    + '<p class="vto-upload-formats">JPG \u00b7 PNG \u00b7 WEBP supported</p>'
+                    + '<input type="file" id="vto-file-input" accept="image/*" style="display:none;" onchange="handleFileSelect(event)">'
+                  + '</div>'
+                + '</div>'
+                + '<div id="vto-preview-area" class="vto-preview-container" style="display:none;">'
+                  + '<img id="vto-preview-image" src="" alt="Preview" class="vto-preview-image" width="400" height="400">'
+                  + '<div class="vto-status-badge"><svg class="vto-status-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>Ready</div>'
+                  + '<button class="vto-button vto-button-secondary vto-button-full vto-mt-sm" onclick="resetUpload()">Change Photo</button>'
+                + '</div>'
+
+                /* Tips for best results */
+                + '<div class="vto-tips-box">'
+                  + '<div class="vto-tips-title">\uD83D\uDCA1 Tips for best results</div>'
+                  + '<ul class="vto-tips-list">'
+                    + '<li>Clear, front-facing standing pose</li>'
+                    + '<li>Good lighting &amp; plain background</li>'
+                    + '<li>Full or upper body visible in frame</li>'
+                    + '<li>Wear fitted clothing (not oversized)</li>'
+                  + '</ul>'
+                + '</div>'
+              + '</div>'
+            + '</div>'
+
+            /* Right panel */
+            + '<div class="vto-right-panel">'
+              + '<div class="vto-result-panel">'
+                + '<div class="vto-result-header">'
+                  + '<h3 class="vto-result-title"><span class="vto-result-icon">\u2728</span> Virtual Mirror Result</h3>'
+                  + '<button id="vto-generate-look-button" class="vto-button vto-button-generate" onclick="startGeneration()" disabled>'
+                    + '<svg class="vto-button-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>'
+                    + 'Generate Look'
+                  + '</button>'
+                + '</div>'
+                + '<div class="vto-result-content" id="vto-result-display">'
+
+                  /* Loading state */
+                  + '<div id="vto-loading-state" style="display:none;width:100%;text-align:center;">'
+                    + '<div id="vto-lottie-container" style="width:180px;height:180px;margin:0 auto;"></div>'
+                    + '<div class="vto-loading-content">'
+                      + '<h3 class="vto-loading-title"><span class="vto-loading-title-text">Creating Your Look</span></h3>'
+                      + '<p class="vto-loading-description">Our AI is carefully fitting the item to your photo.</p>'
+                      + '<p class="vto-loading-description" style="margin-top:0;font-size:13px;color:#9ca3af;">Usually takes 30\u201340 seconds.</p>'
+                      + '<div class="vto-progress-container"><div class="vto-progress-bar"><div class="vto-progress-fill"></div></div><p class="vto-progress-text">Processing\u2026</p></div>'
+                    + '</div>'
+                  + '</div>'
+
+                  /* Result image */
+                  + '<img id="vto-result-image" src="" alt="Try-on Result" class="vto-result-image" width="400" height="400" style="display:none;">'
+
+                  /* Placeholder — how it works */
+                  + '<div id="vto-placeholder-state">'
+                    + '<div class="vto-placeholder-content">'
+                      + '<div class="vto-placeholder-icon">\uD83D\uDC57</div>'
+                      + '<h4 class="vto-placeholder-title">See Yourself in This Outfit</h4>'
+                      + '<p class="vto-placeholder-subtitle">Upload a photo and our AI will fit this item on you \u2014 no guessing, just results.</p>'
+                      + '<div class="vto-how-steps">'
+                        + '<div class="vto-how-step"><div class="vto-how-step-num">1</div><span class="vto-how-step-text">Upload a clear, front-facing photo on the left</span></div>'
+                        + '<div class="vto-how-step"><div class="vto-how-step-num">2</div><span class="vto-how-step-text">Click \u201cGenerate Look\u201d above when ready</span></div>'
+                        + '<div class="vto-how-step"><div class="vto-how-step-num">3</div><span class="vto-how-step-text">Your AI-powered try-on result appears here!</span></div>'
+                      + '</div>'
+                    + '</div>'
+                  + '</div>'
+
+                  /* Error state */
+                  + '<div id="vto-error-state" style="display:none;text-align:center;padding:40px 20px;">'
+                    + '<div style="font-size:52px;margin-bottom:12px;">\u26a0\ufe0f</div>'
+                    + '<p id="vto-error-message" style="color:#dc2626;font-size:16px;font-weight:600;margin-bottom:8px;">Something went wrong</p>'
+                    + '<p style="font-size:13px;color:#6b7280;margin-bottom:20px;">Try a different photo or check your connection.</p>'
+                    + '<button class="vto-button vto-button-secondary" onclick="tryAgain()">Try Again</button>'
+                  + '</div>'
+                + '</div>'
+
+                /* Download / Try Again */
+                + '<div class="vto-result-actions" id="vto-result-actions" style="display:none;">'
+                  + '<button class="vto-button vto-button-dark" onclick="downloadResult()" style="flex:1;">'
+                    + '<svg class="vto-button-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/></svg>Download'
+                  + '</button>'
+                  + '<button class="vto-button vto-button-secondary" onclick="tryAgain()" style="flex:1;">Try Again</button>'
+                + '</div>'
+              + '</div>'
+            + '</div>'
+          + '</div>'
+        + '</div>'
+      + '</div>'
+    + '</div>';
+    document.body.appendChild(modal.firstChild);
+
+    // Loading animation inline styles
+    var st = document.createElement('style');
+    st.textContent = '.vto-loading-title{font-size:22px;font-weight:700;margin:0 0 10px;background:linear-gradient(135deg,#667eea,#764ba2);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;display:flex;align-items:center;justify-content:center;}'
+      + '.vto-loading-description{font-size:14px;color:#6b7280;margin:0 0 6px;line-height:1.5;}'
+      + '.vto-progress-container{width:100%;margin-top:16px;}'
+      + '.vto-progress-bar{width:100%;height:6px;background:#e5e7eb;border-radius:10px;overflow:hidden;margin-bottom:10px;}'
+      + '.vto-progress-fill{height:100%;background:linear-gradient(90deg,#667eea 0%,#764ba2 50%,#667eea 100%);background-size:200% 100%;border-radius:10px;animation:vtoFlow 2s ease-in-out infinite,vtoGrow 30s linear forwards;width:0%;}'
+      + '@keyframes vtoFlow{0%{background-position:0% 0%}100%{background-position:200% 0%}}'
+      + '@keyframes vtoGrow{0%{width:0%}50%{width:70%}90%{width:95%}100%{width:100%}}'
+      + '.vto-progress-text{font-size:13px;color:#9ca3af;margin:0;font-weight:500;text-align:center;}';
+    document.head.appendChild(st);
+  }
+
+  // 4. Define modal functions once (app-embed may have already defined them)
+  if (!window.openVirtualTryOn) {
+    var _product = null, _imageData = null, _sessionId = null, _lottie = null;
+
+    function _updateSteps(active) {
+      for (var i = 1; i <= 3; i++) {
+        var el = document.getElementById('vto-step-' + i);
+        if (el) el.className = 'vto-step-item' + (i < active ? ' vto-step-done' : i === active ? ' vto-step-active' : '');
       }
-      return null;
+      for (var j = 1; j <= 2; j++) {
+        var d = document.getElementById('vto-divider-' + j);
+        if (d) d.className = 'vto-step-divider' + (j < active ? ' vto-step-done' : '');
+      }
     }
 
-    function applyThemeStructure(themeButton) {
-      if (!themeButton) return;
-      
-      const computed = window.getComputedStyle(themeButton);
-      
-      // Only copy structural styles, NOT colors
-      const structuralStyles = [
-        'padding', 'paddingTop', 'paddingRight', 'paddingBottom', 'paddingLeft',
-        'fontSize', 'fontWeight', 'fontFamily', 'letterSpacing', 'lineHeight',
-        'minHeight', 'height', 'width',
-        'display', 'justifyContent', 'alignItems',
-        'transition', 'cursor', 'boxSizing'
-      ];
-      
-      structuralStyles.forEach(prop => {
-        const value = computed[prop];
-        if (value && value !== 'auto' && value !== 'normal') {
-          button.style[prop] = value;
-        }
+    window.openVirtualTryOn = function () {
+      var jsonEl = document.querySelector('script[id^="vto-product-json-"]');
+      var data = null;
+      try { data = JSON.parse(jsonEl ? jsonEl.textContent : '{}'); } catch (e) {}
+
+      _product = {
+        id:        data.id    || document.querySelector('[data-product-id]')?.dataset.productId,
+        title:     data.title || document.querySelector('h1,.product__title,.product-title')?.textContent?.trim() || 'Product',
+        image:     data.featured_image || document.querySelector('.product__media img,.product-image img')?.src || '',
+        variantId: data.variants?.[0]?.id || document.querySelector('select[name="id"],input[name="id"]:checked')?.value
+      };
+
+      document.getElementById('vto-product-thumbnail').src = _product.image || '';
+      document.getElementById('vto-product-name').textContent = _product.title;
+      document.getElementById('virtual-tryon-modal').style.display = 'flex';
+      document.body.style.overflow = 'hidden';
+      _updateSteps(_imageData ? 2 : 1);
+    };
+
+    window.closeVirtualTryOn = function () {
+      document.getElementById('virtual-tryon-modal').style.display = 'none';
+      document.body.style.overflow = '';
+      window.resetUpload();
+    };
+
+    window.resetUpload = function () {
+      _imageData = null; _sessionId = null;
+      document.getElementById('vto-upload-area-container').style.display = 'block';
+      document.getElementById('vto-preview-area').style.display          = 'none';
+      document.getElementById('vto-file-input').value                    = '';
+      document.getElementById('vto-loading-state').style.display         = 'none';
+      document.getElementById('vto-result-image').style.display          = 'none';
+      document.getElementById('vto-placeholder-state').style.display     = 'block';
+      document.getElementById('vto-error-state').style.display           = 'none';
+      document.getElementById('vto-result-actions').style.display        = 'none';
+      document.getElementById('vto-generate-look-button').disabled       = true;
+      _destroyLottie();
+      _updateSteps(1);
+    };
+
+    window.tryAgain = window.resetUpload;
+
+    window.handleFileSelect = function (e) {
+      var f = e.target.files[0]; if (f) _handleFile(f);
+    };
+
+    function _handleFile(file) {
+      if (!file.type.startsWith('image/')) { alert('Please select an image file'); return; }
+      var r = new FileReader();
+      r.onload = function (e) {
+        _imageData = e.target.result;
+        document.getElementById('vto-preview-image').src               = _imageData;
+        document.getElementById('vto-upload-area-container').style.display = 'none';
+        document.getElementById('vto-preview-area').style.display          = 'block';
+        document.getElementById('vto-generate-look-button').disabled       = false;
+        _updateSteps(2);
+      };
+      r.readAsDataURL(file);
+    }
+
+    // Drag-and-drop wiring (deferred until modal exists in DOM)
+    setTimeout(function () {
+      var dz = document.getElementById('vto-drop-zone');
+      if (!dz) return;
+      dz.addEventListener('dragover',  function (e) { e.preventDefault(); dz.classList.add('drag-over'); });
+      dz.addEventListener('dragleave', function ()  { dz.classList.remove('drag-over'); });
+      dz.addEventListener('drop',      function (e) {
+        e.preventDefault(); dz.classList.remove('drag-over');
+        if (e.dataTransfer.files.length) _handleFile(e.dataTransfer.files[0]);
       });
-    }
+    }, 200);
 
-    function applyAppSettings(settings) {
-      if (!settings) return;
+    window.startGeneration = async function () {
+      if (!_imageData || !_product) return;
+      ['vto-placeholder-state','vto-result-image','vto-error-state','vto-result-actions'].forEach(function (id) {
+        var el = document.getElementById(id);
+        if (el) el.style.display = 'none';
+      });
+      document.getElementById('vto-loading-state').style.display = 'block';
+      document.getElementById('vto-generate-look-button').disabled = true;
+      _destroyLottie();
+      setTimeout(_initLottie, 100);
 
-      // Apply border radius from settings
-      if (settings.buttonRadius) {
-        button.style.borderRadius = settings.buttonRadius;
-      }
+      var pf = document.querySelector('.vto-progress-fill');
+      if (pf) { pf.style.width = '0%'; pf.style.animation = 'none'; setTimeout(function () { pf.style.animation = 'vtoFlow 2s ease-in-out infinite,vtoGrow 30s linear forwards'; }, 10); }
 
-      // Apply styles based on button style
-      if (settings.buttonStyle === 'custom') {
-        // Apply custom gradient colors
-        if (settings.buttonGradientStart && settings.buttonGradientEnd) {
-          button.style.background = `linear-gradient(135deg, ${settings.buttonGradientStart} 0%, ${settings.buttonGradientEnd} 100%)`;
-          button.style.color = 'white';
-        } else if (settings.buttonGradientStart) {
-          button.style.backgroundColor = settings.buttonGradientStart;
-          button.style.color = 'white';
-        }
-        
-        // Apply border color
-        if (settings.buttonBorderColor) {
-          button.style.border = `2px solid ${settings.buttonBorderColor}`;
-        } else {
-          button.style.border = 'none';
-        }
-      } else if (settings.buttonStyle === 'primary') {
-        // Primary style - gradient purple/blue
-        if (settings.buttonGradientStart && settings.buttonGradientEnd) {
-          button.style.background = `linear-gradient(135deg, ${settings.buttonGradientStart} 0%, ${settings.buttonGradientEnd} 100%)`;
-        } else {
-          button.style.background = 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)';
-        }
-        button.style.color = 'white';
-        if (settings.buttonBorderColor) {
-          button.style.border = `2px solid ${settings.buttonBorderColor}`;
-        } else {
-          button.style.border = 'none';
-        }
-      } else if (settings.buttonStyle === 'secondary') {
-        // Secondary style - light gray
-        button.style.background = '#f3f4f6';
-        button.style.color = '#1f2937';
-        if (settings.buttonBorderColor) {
-          button.style.border = `2px solid ${settings.buttonBorderColor}`;
-        } else {
-          button.style.border = '2px solid #d1d5db';
-        }
-      } else if (settings.buttonStyle === 'tertiary') {
-        // Tertiary style - transparent with border
-        button.style.background = 'transparent';
-        if (settings.buttonGradientStart) {
-          button.style.color = settings.buttonGradientStart;
-          button.style.border = `2px solid ${settings.buttonGradientStart}`;
-        } else {
-          button.style.color = '#667eea';
-          button.style.border = '2px solid #667eea';
-        }
-      }
-    }
-
-    function getThemeEditorSettings() {
-      // Read settings from theme editor (data attributes)
-      const buttonStyle = button.dataset.buttonStyle || button.getAttribute('data-button-style');
-      const gradientStart = button.dataset.gradientStart || button.getAttribute('data-gradient-start');
-      const gradientEnd = button.dataset.gradientEnd || button.getAttribute('data-gradient-end');
-      const radius = button.dataset.radius || button.getAttribute('data-radius');
-      const borderColor = button.dataset.borderColor || button.getAttribute('data-border-color');
-      
-      // Return settings if any exist
-      if (buttonStyle || gradientStart || gradientEnd || radius || borderColor) {
-        return {
-          buttonStyle,
-          buttonGradientStart: gradientStart,
-          buttonGradientEnd: gradientEnd,
-          buttonRadius: radius,
-          buttonBorderColor: borderColor
-        };
-      }
-      return null;
-    }
-
-    function applyStyles() {
-      // First, apply theme button structure (padding, font, etc.)
-      const themeButton = findThemeButton();
-      applyThemeStructure(themeButton);
-      
-      // Check if theme editor has settings
-      const themeSettings = getThemeEditorSettings();
-      
-      if (themeSettings) {
-        // Use theme editor settings (priority)
-        applyAppSettings(themeSettings);
-      } else {
-        // Fall back to app admin settings
-        fetch(`/apps/proxy/api/button-settings?shop=${shop}`)
-          .then(response => response.json())
-          .then(settings => {
-            applyAppSettings(settings);
+      try {
+        var res = await fetch('/apps/proxy/api/storefront/try-on', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            shop: Shopify.shop,
+            productId:    _product.id,
+            productTitle: _product.title,
+            productImage: _product.image,
+            uploadedImage: _imageData,
+            templateType: 'upper_body'
           })
-          .catch(error => {
-            console.warn('Failed to load button settings:', error);
-            // Apply default primary style
-            button.style.background = 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)';
-            button.style.color = 'white';
-            button.style.border = 'none';
-            button.style.borderRadius = '8px';
+        });
+        var data = await res.json();
+        if (data.success) { _sessionId = data.sessionId; _poll(); }
+        else { _showError(data.error || 'Failed to start generation'); }
+      } catch (e) { _showError('Network error. Please try again.'); }
+    };
+
+    function _poll() {
+      var attempts = 0, max = 60;
+      var iv = setInterval(async function () {
+        if (++attempts > max) { clearInterval(iv); _showError('Timeout. Please try again.'); return; }
+        try {
+          var r = await fetch('/apps/proxy/api/storefront/try-on?sessionId=' + _sessionId);
+          var d = await r.json();
+          if (d.status === 'completed' && d.generatedImage) { clearInterval(iv); setTimeout(function () { _showResult(d.generatedImage); }, 500); }
+          else if (d.status === 'failed') { clearInterval(iv); _showError('Generation failed. Please try again.'); }
+        } catch (e) {}
+      }, 2000);
+    }
+
+    function _showResult(url) {
+      _destroyLottie();
+      document.getElementById('vto-loading-state').style.display           = 'none';
+      document.getElementById('vto-result-image').src                      = url;
+      document.getElementById('vto-result-image').style.display            = 'block';
+      document.getElementById('vto-result-actions').style.display          = 'flex';
+      document.getElementById('vto-generate-look-button').disabled         = false;
+      _updateSteps(3);
+    }
+
+    function _showError(msg) {
+      _destroyLottie();
+      document.getElementById('vto-loading-state').style.display       = 'none';
+      document.getElementById('vto-placeholder-state').style.display   = 'none';
+      document.getElementById('vto-error-state').style.display         = 'block';
+      document.getElementById('vto-error-message').textContent         = msg;
+      document.getElementById('vto-generate-look-button').disabled     = false;
+    }
+
+    window.downloadResult = function () {
+      var img = document.getElementById('vto-result-image');
+      if (!img || !img.src) return;
+      var a = document.createElement('a');
+      a.href = img.src; a.download = 'virtual-tryon-' + Date.now() + '.jpg';
+      document.body.appendChild(a); a.click(); document.body.removeChild(a);
+    };
+
+    function _initLottie() {
+      var c = document.getElementById('vto-lottie-container');
+      if (!c || _lottie) return;
+      if (typeof lottie !== 'undefined') {
+        try {
+          _lottie = lottie.loadAnimation({
+            container: c, renderer: 'svg', loop: true, autoplay: true,
+            path: '/apps/proxy/api/lottie-animation?shop=' + encodeURIComponent(Shopify?.shop || ''),
+            rendererSettings: { preserveAspectRatio: 'xMidYMid meet', clearCanvas: true, progressiveLoad: true }
           });
+        } catch (e) {}
       }
     }
 
-    // Apply styles immediately
+    function _destroyLottie() {
+      if (_lottie) { _lottie.destroy(); _lottie = null; }
+      var c = document.getElementById('vto-lottie-container');
+      if (c) c.innerHTML = '';
+    }
+  }
+})();
+</script>
+
+<!-- ── BUTTON JS: STYLING + CLICK + AUTO-POSITION ────────────────────── -->
+<script>
+(function () {
+  var blockId = '{{ block.id }}';
+  var shop    = Shopify?.shop || window.Shopify?.shop || '';
+  var wrapper = document.getElementById('vto-wrapper-' + blockId);
+  var button  = document.getElementById('vto-btn-'     + blockId);
+  if (!wrapper || !button) return;
+
+  // Wire click through JS (safe: openVirtualTryOn is guaranteed defined above)
+  button.addEventListener('click', function () {
+    if (typeof window.openVirtualTryOn === 'function') window.openVirtualTryOn();
+  });
+
+  // ── Style application ──────────────────────────────────────────────────
+
+  function findThemeButton() {
+    var sels = ['button[name="add"]','button[type="submit"][name="add"]','.product-form__cart-submit','.product-form__submit','[data-add-to-cart]','form[action*="/cart/add"] button[type="submit"]','form.product-form button[type="submit"]'];
+    for (var i = 0; i < sels.length; i++) {
+      var btns = document.querySelectorAll(sels[i]);
+      for (var j = 0; j < btns.length; j++) {
+        var b = btns[j];
+        if (b.id && b.id.startsWith('vto-btn-')) continue;
+        if (b.offsetParent !== null && window.getComputedStyle(b).display !== 'none') return b;
+      }
+    }
+    return null;
+  }
+
+  function applyThemeStructure(tb) {
+    if (!tb) return;
+    var cs = window.getComputedStyle(tb);
+    var props = ['padding','paddingTop','paddingRight','paddingBottom','paddingLeft','fontSize','fontWeight','fontFamily','letterSpacing','lineHeight','minHeight','height','display','justifyContent','alignItems','transition','cursor','boxSizing'];
+    props.forEach(function (p) { var v = cs[p]; if (v && v !== 'auto' && v !== 'normal') button.style[p] = v; });
+  }
+
+  function applyAppSettings(s) {
+    if (!s) return;
+    if (s.buttonRadius) button.style.borderRadius = s.buttonRadius;
+    if (s.buttonStyle === 'custom' || s.buttonStyle === 'primary') {
+      button.style.background = (s.buttonGradientStart && s.buttonGradientEnd)
+        ? 'linear-gradient(135deg,' + s.buttonGradientStart + ' 0%,' + s.buttonGradientEnd + ' 100%)'
+        : (s.buttonGradientStart || 'linear-gradient(135deg,#667eea 0%,#764ba2 100%)');
+      button.style.color  = 'white';
+      button.style.border = s.buttonBorderColor ? '2px solid ' + s.buttonBorderColor : 'none';
+    } else if (s.buttonStyle === 'secondary') {
+      button.style.background = '#f3f4f6'; button.style.color = '#1f2937';
+      button.style.border = s.buttonBorderColor ? '2px solid ' + s.buttonBorderColor : '2px solid #d1d5db';
+    } else if (s.buttonStyle === 'tertiary') {
+      var a = s.buttonGradientStart || '#667eea';
+      button.style.background = 'transparent'; button.style.color = a; button.style.border = '2px solid ' + a;
+    }
+  }
+
+  function getBlockSettings() {
+    var d = button.dataset;
+    if (d.buttonStyle || d.gradientStart || d.gradientEnd || d.radius || d.borderColor)
+      return { buttonStyle: d.buttonStyle, buttonGradientStart: d.gradientStart, buttonGradientEnd: d.gradientEnd, buttonRadius: d.radius, buttonBorderColor: d.borderColor };
+    return null;
+  }
+
+  function applyStyles() {
+    applyThemeStructure(findThemeButton());
+    var bs = getBlockSettings();
+    if (bs) { applyAppSettings(bs); }
+    else {
+      fetch('/apps/proxy/api/button-settings?shop=' + encodeURIComponent(shop))
+        .then(function (r) { return r.json(); }).then(applyAppSettings)
+        .catch(function () { button.style.background = 'linear-gradient(135deg,#667eea 0%,#764ba2 100%)'; button.style.color = 'white'; button.style.border = 'none'; button.style.borderRadius = '8px'; });
+    }
+  }
+
+  // ── Auto-position below Buy Now (storefront only) ──────────────────────
+
+  function positionBelowBuyButton() {
+    if (window.Shopify && window.Shopify.designMode) return;
+    if (!wrapper.parentElement) return;
+    var paymentSels = ['[data-payment-buttons]','.shopify-payment-button','.product-form__payment-container','.product-form__buttons','.product__buttons'];
+    for (var i = 0; i < paymentSels.length; i++) {
+      var el = document.querySelector(paymentSels[i]);
+      if (el && !el.contains(wrapper) && el.parentElement) { el.parentElement.insertBefore(wrapper, el.nextSibling); return; }
+    }
+    var atcSels = ['button[name="add"]','button[type="submit"][name="add"]','.product-form__cart-submit','[data-add-to-cart]','form[action*="/cart/add"] button[type="submit"]'];
+    for (var j = 0; j < atcSels.length; j++) {
+      var b = document.querySelector(atcSels[j]);
+      if (b && !(b.id && b.id.startsWith('vto-btn-')) && b.parentElement) { b.parentElement.insertBefore(wrapper, b.nextSibling); return; }
+    }
+  }
+
+  // ── Init ───────────────────────────────────────────────────────────────
+  applyStyles();
+  setTimeout(applyStyles, 150);
+  setTimeout(function () { applyStyles(); positionBelowBuyButton(); }, 600);
+
+  var positioned = false;
+  var obs = new MutationObserver(function () {
     applyStyles();
-    
-    // Retry if theme button isn't loaded yet
-    setTimeout(applyStyles, 100);
-    setTimeout(applyStyles, 500);
-    
-    // Watch for DOM changes (for dynamic themes)
-    const observer = new MutationObserver(() => {
-      applyStyles();
-    });
-    observer.observe(document.body, { childList: true, subtree: true });
-    setTimeout(() => observer.disconnect(), 3000); // Stop watching after 3s
-  })();
+    if (!positioned && !(window.Shopify && window.Shopify.designMode)) { positionBelowBuyButton(); positioned = true; }
+  });
+  obs.observe(document.body, { childList: true, subtree: true });
+  setTimeout(function () { obs.disconnect(); }, 4000);
+})();
 </script>
 
 {% schema %}
@@ -243,6 +545,13 @@
   "name": "Virtual Try-On Button",
   "target": "section",
   "settings": [
+    {
+      "type": "text",
+      "id": "button_icon",
+      "label": "Button Icon (emoji)",
+      "default": "✨",
+      "info": "Paste any emoji or leave empty to hide the icon"
+    },
     {
       "type": "text",
       "id": "button_text",
@@ -254,22 +563,10 @@
       "id": "button_style",
       "label": "Button Style",
       "options": [
-        {
-          "value": "primary",
-          "label": "Primary"
-        },
-        {
-          "value": "secondary",
-          "label": "Secondary"
-        },
-        {
-          "value": "tertiary",
-          "label": "Tertiary"
-        },
-        {
-          "value": "custom",
-          "label": "Custom"
-        }
+        { "value": "primary",   "label": "Primary"   },
+        { "value": "secondary", "label": "Secondary" },
+        { "value": "tertiary",  "label": "Tertiary"  },
+        { "value": "custom",    "label": "Custom"    }
       ],
       "default": "primary"
     },
@@ -279,7 +576,7 @@
     },
     {
       "type": "paragraph",
-      "content": "These settings apply when Button Style is set to 'Custom'. Changes here automatically sync with app admin settings."
+      "content": "These settings apply when Button Style is set to 'Custom'."
     },
     {
       "type": "color",
